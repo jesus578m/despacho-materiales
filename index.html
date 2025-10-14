@@ -4,11 +4,17 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Despacho de Materiales</title>
+
+  <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
+
   <style>
     ::-webkit-scrollbar{height:8px;width:8px}
     ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:6px}
+    .badge{font-size:.65rem;padding:.15rem .4rem;border-radius:.35rem}
   </style>
+
+  <!-- SheetJS (importar/exportar Excel de STOCK) -->
   <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body class="bg-slate-50 text-slate-900">
@@ -16,25 +22,62 @@
     <header class="flex items-center justify-between gap-4 mb-4">
       <h1 class="text-2xl font-bold">📦 Despacho de Materiales</h1>
       <nav class="flex gap-2" id="tabs">
-        <button data-tab="despacho" class="tab-btn px-4 py-2 rounded-lg bg-sky-600 text-white">Despacho</button>
-        <button data-tab="stock" class="tab-btn px-4 py-2 rounded-lg bg-white text-slate-700 border">Stock</button>
+        <button data-tab="despacho"  class="tab-btn px-4 py-2 rounded-lg bg-sky-600 text-white">Despacho</button>
+        <button data-tab="stock"     class="tab-btn px-4 py-2 rounded-lg bg-white text-slate-700 border">Stock</button>
         <button data-tab="descargas" class="tab-btn px-4 py-2 rounded-lg bg-white text-slate-700 border">Descargas</button>
       </nav>
     </header>
 
-    <!-- Sección Despacho -->
+    <!-- Barra de estado de sincronización -->
+    <div id="syncBar" class="mb-3 text-xs hidden">
+      <div class="rounded-lg border bg-white p-2 flex items-center gap-2">
+        <span id="syncMode" class="badge bg-slate-200 text-slate-700">Modo local</span>
+        <span id="syncMsg" class="text-slate-600">Las descargas se guardan en este navegador.</span>
+        <div class="ml-auto flex gap-2">
+          <button id="btnSyncPull" class="px-2 py-1 border rounded">Actualizar (pull)</button>
+          <button id="btnSyncPush" class="px-2 py-1 border rounded">Sincronizar (push)</button>
+          <button id="btnExportDesc" class="px-2 py-1 border rounded">Descargar descargas.json</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- DESPACHO -->
     <section id="view-despacho" class="space-y-4">
       <div class="grid md:grid-cols-5 grid-cols-1 gap-3">
         <div class="col-span-2">
           <label class="text-xs text-slate-500">Número de parte</label>
           <div class="flex gap-2">
-            <input id="np" class="flex-1 px-3 py-2 rounded-lg border focus:ring-2 focus:ring-sky-500" placeholder="Escribe el número de parte…" />
+            <input id="np" class="flex-1 px-3 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-sky-500" placeholder="Escribe el número de parte…" />
             <button id="btnBuscar" class="px-4 py-2 rounded-lg bg-sky-600 text-white">Buscar</button>
           </div>
         </div>
-        <div><label class="text-xs text-slate-500">Matrícula</label><input id="matricula" class="w-full px-3 py-2 rounded-lg border" /></div>
-        <div><label class="text-xs text-slate-500">N.E. Técnico</label><input id="neTecnico" class="w-full px-3 py-2 rounded-lg border" /></div>
-        <div><label class="text-xs text-slate-500">W.O.</label><input id="wo" class="w-full px-3 py-2 rounded-lg border" /></div>
+        <div>
+          <label class="text-xs text-slate-500">Matrícula (T5)</label>
+          <input id="matricula" class="w-full px-3 py-2 rounded-lg border" />
+        </div>
+        <div>
+          <label class="text-xs text-slate-500">N.E. Técnico (Q5)</label>
+          <input id="neTecnico" class="w-full px-3 py-2 rounded-lg border" />
+        </div>
+        <div>
+          <label class="text-xs text-slate-500">WO (W5)</label>
+          <input id="wo" class="w-full px-3 py-2 rounded-lg border" />
+        </div>
+      </div>
+
+      <div class="grid md:grid-cols-3 grid-cols-1 gap-3">
+        <div>
+          <label class="text-xs text-slate-500">Cliente</label>
+          <input id="cliente" class="w-full px-3 py-2 rounded-lg border" placeholder="Opcional" />
+        </div>
+        <div>
+          <label class="text-xs text-slate-500">No. Almacenista</label>
+          <input id="noAlmacenista" class="w-full px-3 py-2 rounded-lg border" />
+        </div>
+        <div>
+          <label class="text-xs text-slate-500">Usuario Almacén (N5)</label>
+          <input id="usuarioAlmacen" class="w-full px-3 py-2 rounded-lg border" />
+        </div>
       </div>
 
       <div class="rounded-xl border bg-white overflow-hidden">
@@ -43,10 +86,19 @@
           <table class="min-w-full text-sm" id="tablaDespacho">
             <thead class="bg-slate-100 text-slate-600">
               <tr>
-                <th>Alerta</th><th>Batch</th><th>Material</th><th>Descripción</th>
-                <th>BUn</th><th>MTyp</th><th>SLoc</th><th>Bin</th>
-                <th>Stock</th><th>Cant. Despachada</th>
-                <th>Remark</th><th>Comentarios</th><th>Despacho</th>
+                <th class="px-2 py-2 text-left w-28">Alerta</th>
+                <th class="px-2 py-2 text-left">Batch</th>
+                <th class="px-2 py-2 text-left">Material</th>
+                <th class="px-2 py-2 text-left">Material Description</th>
+                <th class="px-2 py-2 text-left">BUn</th>
+                <th class="px-2 py-2 text-left">MTyp</th>
+                <th class="px-2 py-2 text-left">SLoc</th>
+                <th class="px-2 py-2 text-left">Bin</th>
+                <th class="px-2 py-2 text-right">Sum of Unrestricted</th>
+                <th class="px-2 py-2 text-right">QTY Despachada</th>
+                <th class="px-2 py-2 text-left">REMARK</th>
+                <th class="px-2 py-2 text-left">COMENTARIOS</th>
+                <th class="px-2 py-2 text-center">DESPACHO</th>
               </tr>
             </thead>
             <tbody id="bodyDespacho"></tbody>
@@ -54,32 +106,39 @@
         </div>
       </div>
 
-      <div class="flex justify-between items-center">
-        <p class="text-xs text-slate-500">Si aparece <span class="text-rose-600 font-semibold">SIN STOCK</span>, no se puede despachar.</p>
+      <div class="flex items-center justify-between">
+        <p class="text-xs text-slate-500">Tip: si una fila muestra <span class="font-semibold text-rose-600">SIN STOCK</span> no podrá despacharse.</p>
         <div class="flex gap-2">
-          <button id="btnBorrar" class="px-4 py-2 border rounded-lg">Borrar filas</button>
-          <button id="btnDespachar" class="px-4 py-2 bg-emerald-600 text-white rounded-lg">DESPACHAR</button>
+          <button id="btnBorrar" class="px-4 py-2 rounded-lg border">Borrar filas</button>
+          <button id="btnDespachar" class="px-4 py-2 rounded-lg bg-emerald-600 text-white">DESPACHAR MATERIAL</button>
         </div>
       </div>
     </section>
 
-    <!-- Sección Stock -->
+    <!-- STOCK -->
     <section id="view-stock" class="hidden">
       <div class="rounded-xl border bg-white overflow-hidden">
-        <div class="flex justify-between px-4 py-3 border-b bg-slate-50">
+        <div class="flex items-center justify-between px-4 py-3 border-b bg-slate-50">
           <div class="font-semibold">STOCK</div>
-          <div class="flex gap-2">
+          <div class="flex items-center gap-2">
             <input id="fileExcel" type="file" accept=".xlsx,.xls" class="hidden" />
-            <button id="btnCargarExcel" class="px-3 py-1.5 border rounded-lg text-sm">Cargar Excel</button>
-            <button id="btnExportarStock" class="px-3 py-1.5 border rounded-lg text-sm">Exportar</button>
+            <button id="btnCargarExcel" class="px-3 py-1.5 rounded-lg border text-sm">Cargar Excel</button>
+            <button id="btnExportarStock" class="px-3 py-1.5 rounded-lg border text-sm">Exportar</button>
           </div>
         </div>
         <div class="overflow-auto">
           <table class="min-w-full text-sm" id="tablaStock">
             <thead class="bg-slate-100 text-slate-600">
               <tr>
-                <th>Material</th><th>Descripción</th><th>SLoc</th><th>Bin</th>
-                <th>Unrestricted</th><th>BUn</th><th>Batch</th><th>MTyp</th><th>COSTO</th>
+                <th class="px-2 py-2 text-left">Material</th>
+                <th class="px-2 py-2 text-left">Material Description</th>
+                <th class="px-2 py-2 text-left">SLoc</th>
+                <th class="px-2 py-2 text-left">Bin</th>
+                <th class="px-2 py-2 text-right">Unrestricted</th>
+                <th class="px-2 py-2 text-left">BUn</th>
+                <th class="px-2 py-2 text-left">Batch</th>
+                <th class="px-2 py-2 text-left">MTyp</th>
+                <th class="px-2 py-2 text-right">COSTO</th>
               </tr>
             </thead>
             <tbody id="bodyStock"></tbody>
@@ -88,20 +147,31 @@
       </div>
     </section>
 
-    <!-- Sección Descargas -->
+    <!-- DESCARGAS -->
     <section id="view-descargas" class="hidden">
       <div class="rounded-xl border bg-white overflow-hidden">
-        <div class="flex justify-between px-4 py-3 border-b bg-slate-50">
+        <div class="flex items-center justify-between px-4 py-3 border-b bg-slate-50">
           <div class="font-semibold">DESPACHOS REALIZADOS</div>
-          <button id="btnLimpiarDescargas" class="px-3 py-1.5 border rounded-lg text-sm">Vaciar lista</button>
+          <div class="flex items-center gap-2">
+            <button id="btnLimpiarDescargas" class="px-3 py-1.5 rounded-lg border text-sm">Vaciar lista (local)</button>
+          </div>
         </div>
         <div class="overflow-auto">
           <table class="min-w-full text-sm" id="tablaDescargas">
             <thead class="bg-slate-100 text-slate-600">
               <tr>
-                <th>Matrícula</th><th>NP</th><th>Descripción</th><th>W.O.</th>
-                <th>Cantidad</th><th>UM</th><th>SLoc</th><th>Batch</th>
-                <th>N.E. Técnico</th><th>Usuario</th><th>Fecha</th><th>Comentario</th>
+                <th class="px-2 py-2 text-left">MATRÍCULA</th>
+                <th class="px-2 py-2 text-left">NP</th>
+                <th class="px-2 py-2 text-left">DESCRIPCIÓN</th>
+                <th class="px-2 py-2 text-left">W.O.</th>
+                <th class="px-2 py-2 text-right">CANTIDAD</th>
+                <th class="px-2 py-2 text-left">UM</th>
+                <th class="px-2 py-2 text-left">SLOC</th>
+                <th class="px-2 py-2 text-left">BATCH</th>
+                <th class="px-2 py-2 text-left">N.E. TÉCNICO</th>
+                <th class="px-2 py-2 text-left">USUARIO ALMACÉN</th>
+                <th class="px-2 py-2 text-left">FECHA</th>
+                <th class="px-2 py-2 text-left">COMENTARIO</th>
               </tr>
             </thead>
             <tbody id="bodyDescargas"></tbody>
@@ -116,86 +186,489 @@
     <div class="bg-emerald-600 text-white px-4 py-2 rounded-lg shadow-lg">Tu despacho ha sido completado</div>
   </div>
 
-  <!-- Script principal -->
+  <!-- Carga condicional de config.js (si existe) -->
+  <script>
+    window.__CONFIG__ = null;
+    (function loadConfig(){
+      const s = document.createElement('script');
+      s.type = 'module';
+      s.innerHTML = `
+        import cfg from './config.js';
+        window.__CONFIG__ = cfg;
+      `;
+      s.onerror = () => { /* sin config.js => modo local/solo lectura */ };
+      document.head.appendChild(s);
+    })();
+  </script>
+
+  <!-- App -->
   <script type="module">
     import STOCK_DATA from './stock-data.js';
-    let STOCK = STOCK_DATA || [];
-    let DESCARGAS = JSON.parse(localStorage.getItem('descargas_v1') || '[]');
 
-    function formatNumber(n){return Number(n||0).toLocaleString('es-MX',{maximumFractionDigits:2});}
-    function saveDescargas(){localStorage.setItem('descargas_v1', JSON.stringify(DESCARGAS));}
+    // ===== CONFIG / MODO =====
+    const CONFIG = window.__CONFIG__ || null;
+    const GH = CONFIG && CONFIG.github ? CONFIG.github : null;
+    const SHARED_MODE = !!GH;     // si hay config de GitHub, activamos modo compartido
+    const CAN_PUSH    = SHARED_MODE && !!GH.token; // si además hay token, habilitamos "push"
+
+    // ===== ESTADO =====
+    let STOCK = [];               // se carga de stock-data.js o Excel
+    let DESCARGAS_LOCAL = [];     // copia local (si no hay compartido)
+    let DESCARGAS_SHARED = [];    // leído desde descargas.json del repo (lectura compartida)
+
+    // ===== CLAVES LOCALSTORAGE =====
+    const LS_STOCK = 'stock_v1';
+    const LS_DESC  = 'descargas_v1';
+
+    // ===== UTILIDADES =====
+    const $ = (sel, ctx=document) => ctx.querySelector(sel);
+    const $all = (sel, ctx=document) => Array.from(ctx.querySelectorAll(sel));
+    const fmt = n => Number(n||0).toLocaleString('es-MX',{maximumFractionDigits:2});
+    const toNum = v => {
+      if(v==null) return 0;
+      if(typeof v==='number') return v;
+      let s = String(v).trim();
+      if(!s) return 0;
+      const hasC=s.includes(','), hasD=s.includes('.');
+      if(hasC && hasD){
+        if(s.lastIndexOf('.')>s.lastIndexOf(',')) s=s.replace(/,/g,'');
+        else s=s.replace(/\./g,'').replace(/,/g,'.');
+      } else if(hasC){ s=s.replace(/,/g,'.'); }
+      s=s.replace(/[^0-9.-]/g,'');
+      const n=parseFloat(s);
+      return isNaN(n)?0:n;
+    };
+
+    const DESC_KEYS = ['matricula','np','descripcion','wo','cantidad','um','sloc','batch','neTecnico','usuarioAlmacen','fecha','comentario'];
+
+    // ===== SINCRONIZACIÓN (GitHub RAW + Contents API) =====
+    function getRawURL(path='descargas.json'){
+      // https://raw.githubusercontent.com/<owner>/<repo>/main/<path>
+      return `https://raw.githubusercontent.com/${GH.owner}/${GH.repo}/${GH.branch||'main'}/${path}`;
+    }
+    async function pullSharedDescargas(){
+      if(!SHARED_MODE) return [];
+      try{
+        const res = await fetch(getRawURL('descargas.json') + `?t=${Date.now()}`, {cache:'no-store'});
+        if(!res.ok) throw new Error('No se pudo leer descargas.json');
+        const json = await res.json();
+        if(!Array.isArray(json)) throw new Error('descargas.json no es un arreglo');
+        DESCARGAS_SHARED = json;
+        return json;
+      }catch(e){
+        console.warn(e);
+        return [];
+      }
+    }
+    // GitHub Contents API: PUT /repos/{owner}/{repo}/contents/{path}
+    async function pushSharedDescargas(newArray){
+      if(!CAN_PUSH) throw new Error('Sin token/config para escritura');
+      const path = 'descargas.json';
+      // Obtener SHA actual
+      const metaRes = await fetch(`https://api.github.com/repos/${GH.owner}/${GH.repo}/contents/${path}?ref=${GH.branch||'main'}`, {
+        headers: { 'Accept':'application/vnd.github+json', 'Authorization':`Bearer ${GH.token}` }
+      });
+      const meta = metaRes.ok ? await metaRes.json() : null;
+      const sha = meta && meta.sha ? meta.sha : undefined;
+
+      const content = btoa(unescape(encodeURIComponent(JSON.stringify(newArray, null, 2))));
+      const body = {
+        message: `chore(descargas): update ${new Date().toISOString()}`,
+        content,
+        branch: GH.branch||'main',
+        sha
+      };
+      const putRes = await fetch(`https://api.github.com/repos/${GH.owner}/${GH.repo}/contents/${path}`, {
+        method:'PUT',
+        headers:{
+          'Accept':'application/vnd.github+json',
+          'Authorization':`Bearer ${GH.token}`,
+          'Content-Type':'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+      if(!putRes.ok){
+        const txt = await putRes.text();
+        throw new Error('Error al guardar en GitHub: ' + txt);
+      }
+      return true;
+    }
+
+    function downloadJSON(filename, data){
+      const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = filename; a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function setSyncBar(){
+      const bar = $('#syncBar');
+      const mode = $('#syncMode');
+      const msg = $('#syncMsg');
+      const btnPush = $('#btnSyncPush');
+      const btnPull = $('#btnSyncPull');
+      const btnExp  = $('#btnExportDesc');
+
+      bar.classList.remove('hidden');
+
+      if(SHARED_MODE){
+        mode.textContent = CAN_PUSH ? 'Modo compartido (lectura/escritura)' : 'Modo compartido (solo lectura)';
+        mode.className = 'badge bg-emerald-100 text-emerald-700';
+        msg.textContent = CAN_PUSH
+          ? 'Las descargas se comparten entre equipos y se escriben en el repositorio.'
+          : 'Las descargas se leen del repositorio (compartidas). Para escribir, agrega config.js con token.';
+        btnPush.disabled = !CAN_PUSH;
+        btnPull.disabled = false;
+        btnExp.disabled  = false;
+      }else{
+        mode.textContent = 'Modo local';
+        mode.className = 'badge bg-slate-200 text-slate-700';
+        msg.textContent = 'Las descargas se guardan en este navegador. Usa "Descargar descargas.json" para subirlo al repo.';
+        btnPush.disabled = true;
+        btnPull.disabled = true;
+        btnExp.disabled  = false;
+      }
+    }
+
+    // ===== STOCK =====
+    function normalizeRow(r){
+      // Acepta "Material Description" o "MaterialDescription"
+      return {
+        Material: r.Material ?? r.material ?? '',
+        MaterialDescription: r['Material Description'] ?? r.MaterialDescription ?? r.descripcion ?? '',
+        SLoc: r.SLoc ?? r.SLOC ?? '',
+        Bin:  r.Bin ?? r.BIN ?? '',
+        Unrestricted: toNum(r.Unrestricted ?? r['Sum of Unrestricted'] ?? r.Unrestrict ?? 0),
+        BUn:  r.BUn ?? r.UM ?? '',
+        Batch:r.Batch ?? r.BATCH ?? '',
+        MTyp: r.MTyp ?? r.MTYP ?? '',
+        COSTO: toNum(r.COSTO ?? r.Costo ?? r.COST ?? 0)
+      };
+    }
 
     function renderStock(){
-      const tb=document.getElementById('bodyStock');tb.innerHTML='';
-      for(const r of STOCK){
-        tb.insertAdjacentHTML('beforeend',`<tr class="border-b"><td>${r.Material}</td><td>${r["Material Description"]||r.MaterialDescription}</td><td>${r.SLoc}</td><td>${r.Bin}</td><td>${formatNumber(r.Unrestricted)}</td><td>${r.BUn}</td><td>${r.Batch}</td><td>${r.MTyp}</td><td>${formatNumber(r.COSTO)}</td></tr>`);
-      }
-    }
-
-    function renderDescargas(){
-      const tb=document.getElementById('bodyDescargas');tb.innerHTML='';
-      for(const d of DESCARGAS){
-        tb.insertAdjacentHTML('beforeend',`<tr class="border-b"><td>${d.matricula}</td><td>${d.np}</td><td>${d.descripcion}</td><td>${d.wo}</td><td>${formatNumber(d.cantidad)}</td><td>${d.um}</td><td>${d.sloc}</td><td>${d.batch}</td><td>${d.neTecnico}</td><td>${d.usuarioAlmacen}</td><td>${d.fecha}</td><td>${d.comentario}</td></tr>`);
-      }
-    }
-
-    document.getElementById('btnBuscar').addEventListener('click',()=>{
-      const np=document.getElementById('np').value.trim().toUpperCase();
-      const items=STOCK.filter(x=>String(x.Material).toUpperCase()===np);
-      const tb=document.getElementById('bodyDespacho');tb.innerHTML='';
-      for(const r of items){
-        tb.insertAdjacentHTML('beforeend',`
+      const tb = $('#bodyStock'); tb.innerHTML='';
+      for(const _r of STOCK){
+        const r = normalizeRow(_r);
+        tb.insertAdjacentHTML('beforeend', `
           <tr class="border-b">
-            <td>${r.Unrestricted<=0?'SIN STOCK':''}</td><td>${r.Batch}</td><td>${r.Material}</td>
-            <td>${r["Material Description"]||r.MaterialDescription}</td><td>${r.BUn}</td><td>${r.MTyp}</td>
-            <td>${r.SLoc}</td><td>${r.Bin}</td>
-            <td class="text-right">${formatNumber(r.Unrestricted)}</td>
-            <td><input type="number" min="0" class="qty w-20 border rounded px-1 py-0.5" /></td>
-            <td></td><td><input class="coment w-40 border rounded px-1 py-0.5" placeholder="Comentario" /></td>
-            <td><input type="checkbox" class="chk w-5 h-5" /></td>
-          </tr>`);
+            <td class="px-2 py-1">${r.Material}</td>
+            <td class="px-2 py-1">${r.MaterialDescription}</td>
+            <td class="px-2 py-1">${r.SLoc}</td>
+            <td class="px-2 py-1">${r.Bin}</td>
+            <td class="px-2 py-1 text-right">${fmt(r.Unrestricted)}</td>
+            <td class="px-2 py-1">${r.BUn}</td>
+            <td class="px-2 py-1">${r.Batch}</td>
+            <td class="px-2 py-1">${r.MTyp}</td>
+            <td class="px-2 py-1 text-right">${fmt(r.COSTO)}</td>
+          </tr>
+        `);
       }
-    });
+    }
 
-    document.getElementById('btnDespachar').addEventListener('click',()=>{
-      const rows=document.querySelectorAll('#bodyDespacho tr');
-      const matricula=document.getElementById('matricula').value.trim();
-      const neTecnico=document.getElementById('neTecnico').value.trim();
-      const wo=document.getElementById('wo').value.trim();
+    // ===== DESCARGAS (render) =====
+    function renderDescargasTable(arr){
+      const tb = $('#bodyDescargas'); tb.innerHTML='';
+      for(const r of arr){
+        tb.insertAdjacentHTML('beforeend', `
+          <tr class="border-b">
+            <td class="px-2 py-1">${r.matricula||''}</td>
+            <td class="px-2 py-1">${r.np||''}</td>
+            <td class="px-2 py-1">${r.descripcion||''}</td>
+            <td class="px-2 py-1">${r.wo||''}</td>
+            <td class="px-2 py-1 text-right">${fmt(r.cantidad||0)}</td>
+            <td class="px-2 py-1">${r.um||''}</td>
+            <td class="px-2 py-1">${r.sloc||''}</td>
+            <td class="px-2 py-1">${r.batch||''}</td>
+            <td class="px-2 py-1">${r.neTecnico||''}</td>
+            <td class="px-2 py-1">${r.usuarioAlmacen||''}</td>
+            <td class="px-2 py-1">${r.fecha||''}</td>
+            <td class="px-2 py-1">${r.comentario||''}</td>
+          </tr>
+        `);
+      }
+    }
+
+    // ===== DESPACHO =====
+    let filasDespacho = [];
+
+    function sumDespachadoShared(material, sloc, batch){
+      const base = SHARED_MODE ? DESCARGAS_SHARED : DESCARGAS_LOCAL;
+      return base
+        .filter(x => x.material===material && x.sloc===sloc && x.batch===batch)
+        .reduce((s,x)=> s + Number(x.cantidad||0), 0);
+    }
+
+    function stockPorNP(np){
+      const rows = (STOCK||[]).filter(x => String(x.Material||'').toUpperCase() === String(np||'').toUpperCase());
+      const map = new Map();
       for(const r of rows){
-        const chk=r.querySelector('.chk');
-        const qty=Number(r.querySelector('.qty').value||0);
-        if(chk.checked && qty>0){
-          DESCARGAS.push({
-            matricula, np:r.children[2].textContent, descripcion:r.children[3].textContent,
-            wo, cantidad:qty, um:r.children[4].textContent, sloc:r.children[6].textContent,
-            batch:r.children[1].textContent, neTecnico, usuarioAlmacen:'', fecha:new Date().toLocaleString(),
-            comentario:r.querySelector('.coment').value
-          });
-        }
+        const key = r.Bin;
+        if(!map.has(key)) map.set(key, {...r});
+        else map.get(key).Unrestricted = toNum(map.get(key).Unrestricted) + toNum(r.Unrestricted);
       }
-      saveDescargas();
-      document.getElementById('toast').classList.remove('hidden');
-      setTimeout(()=>document.getElementById('toast').classList.add('hidden'),2000);
-      document.getElementById('bodyDespacho').innerHTML='';
-    });
+      return Array.from(map.values());
+    }
 
-    document.getElementById('btnBorrar').addEventListener('click',()=>document.getElementById('bodyDespacho').innerHTML='');
-    document.getElementById('btnLimpiarDescargas').addEventListener('click',()=>{
-      if(confirm('¿Vaciar lista de descargas?')){DESCARGAS=[];saveDescargas();renderDescargas();}
-    });
+    function buscar(){
+      const np = $('#np').value.trim();
+      const items = stockPorNP(np);
+      filasDespacho = items.map((r, idx)=>{
+        const ya = sumDespachadoShared(r.Material, r.SLoc, r.Batch);
+        const disponible = toNum(r.Unrestricted) - ya;
+        return {
+          id: idx+1,
+          alerta: disponible<=0 ? 'SIN STOCK' : '',
+          batch: r.Batch,
+          material: r.Material,
+          descripcion: r.MaterialDescription ?? r['Material Description'] ?? '',
+          bun: r.BUn,
+          mtyp: r.MTyp,
+          sloc: r.SLoc,
+          bin: r.Bin,
+          stock: toNum(r.Unrestricted),
+          disponible,
+          qty: 0,
+          remark: '',
+          comentario: '',
+          check: false,
+          costo: toNum(r.COSTO||0)
+        };
+      });
+      renderDespacho();
+    }
 
-    document.querySelectorAll('#tabs .tab-btn').forEach(btn=>{
-      btn.addEventListener('click',()=>{
-        const tab=btn.dataset.tab;
-        document.querySelectorAll('#tabs .tab-btn').forEach(b=>b.classList.remove('bg-sky-600','text-white'));
+    function renderDespacho(){
+      const tb = $('#bodyDespacho'); tb.innerHTML='';
+      for(const f of filasDespacho){
+        const danger = f.alerta==='SIN STOCK' || (f.qty>0 && f.qty>f.disponible);
+        const alerta = danger ? 'SIN STOCK' : '';
+        tb.insertAdjacentHTML('beforeend', `
+          <tr class="border-b ${danger? 'bg-rose-50':''}">
+            <td class="px-2 py-1 text-rose-600 font-semibold">${alerta}</td>
+            <td class="px-2 py-1">${f.batch||''}</td>
+            <td class="px-2 py-1">${f.material}</td>
+            <td class="px-2 py-1">${f.descripcion||''}</td>
+            <td class="px-2 py-1">${f.bun||''}</td>
+            <td class="px-2 py-1">${f.mtyp||''}</td>
+            <td class="px-2 py-1">${f.sloc||''}</td>
+            <td class="px-2 py-1">${f.bin||''}</td>
+            <td class="px-2 py-1 text-right">${fmt(f.stock)} <span class="text-xs text-slate-500">(disp: ${fmt(f.disponible)})</span></td>
+            <td class="px-2 py-1 text-right"><input type="number" min="0" step="0.01" value="${f.qty}" data-id="${f.id}" class="qty w-28 px-2 py-1 rounded-md border text-right" /></td>
+            <td class="px-2 py-1"></td>
+            <td class="px-2 py-1"><input data-id="${f.id}" class="coment w-56 px-2 py-1 rounded-md border" placeholder="Comentario" value="${f.comentario||''}"/></td>
+            <td class="px-2 py-1 text-center"><input type="checkbox" ${f.check? 'checked':''} data-id="${f.id}" class="chk w-5 h-5" ${danger? 'disabled':''} /></td>
+          </tr>
+        `);
+      }
+
+      // Listeners por fila
+      $all('.qty', tb).forEach(inp=>{
+        inp.addEventListener('input', e=>{
+          const id = Number(e.target.dataset.id);
+          const row = filasDespacho.find(x=>x.id===id);
+          row.qty = toNum(e.target.value||0);
+          renderDespacho(); // recalcula alerta
+        });
+      });
+      $all('.coment', tb).forEach(inp=>{
+        inp.addEventListener('input', e=>{
+          const id = Number(e.target.dataset.id);
+          const row = filasDespacho.find(x=>x.id===id);
+          row.comentario = e.target.value;
+        });
+      });
+      $all('.chk', tb).forEach(inp=>{
+        inp.addEventListener('change', e=>{
+          const id = Number(e.target.dataset.id);
+          const row = filasDespacho.find(x=>x.id===id);
+          row.check = e.target.checked;
+        });
+      });
+    }
+
+    function toast(msg='Tu despacho ha sido completado'){
+      const t = $('#toast');
+      t.firstElementChild.textContent = msg;
+      t.classList.remove('hidden');
+      setTimeout(()=> t.classList.add('hidden'), 2200);
+    }
+
+    async function despachar(){
+      const matricula      = $('#matricula').value.trim();
+      const neTecnico      = $('#neTecnico').value.trim();
+      const usuarioAlmacen = $('#usuarioAlmacen').value.trim();
+      const wo             = $('#wo').value.trim();
+
+      const out = [];
+      for(const f of filasDespacho){
+        const danger = (f.disponible<=0) || (f.qty>0 && f.qty>f.disponible);
+        if(!f.check || !f.qty || danger) continue;
+        out.push({
+          matricula,
+          np: f.material,
+          descripcion: f.descripcion,
+          wo,
+          cantidad: toNum(f.qty),
+          um: f.bun,
+          sloc: f.sloc,
+          batch: f.batch,
+          neTecnico,
+          usuarioAlmacen,
+          fecha: new Date().toISOString().replace('T',' ').slice(0,16),
+          comentario: f.comentario,
+          material: f.material
+        });
+      }
+      if(out.length===0) return;
+
+      if(SHARED_MODE){
+        // Pull último, merge y push (si hay token). Si no hay token, descarga archivo.
+        const latest = await pullSharedDescargas();
+        const merged = latest.concat(out);
+        if(CAN_PUSH){
+          try{
+            await pushSharedDescargas(merged);
+            DESCARGAS_SHARED = merged;
+            toast('Sincronizado en repositorio');
+          }catch(e){
+            console.warn(e);
+            downloadJSON('descargas.json', merged);
+            toast('No se pudo escribir en repo. Se descargó descargas.json');
+          }
+        }else{
+          downloadJSON('descargas.json', merged);
+          toast('Descargas listas. Sube descargas.json al repo para compartir.');
+        }
+      }else{
+        // Local
+        const curr = JSON.parse(localStorage.getItem(LS_DESC) || '[]');
+        const merged = curr.concat(out);
+        localStorage.setItem(LS_DESC, JSON.stringify(merged));
+        DESCARGAS_LOCAL = merged;
+        toast();
+      }
+
+      // Limpiar selección
+      filasDespacho = filasDespacho.filter(f => !(f.check && f.qty));
+      renderDespacho();
+    }
+
+    // ===== Excel (STOCK) =====
+    async function importarExcel(file){
+      const data = await file.arrayBuffer();
+      const wb   = XLSX.read(data, {type:'array'});
+      const ws   = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, {defval:''});
+      const out = rows.map(r => normalizeRow(r)).filter(r => String(r.Material||'').trim());
+      STOCK = out;
+      localStorage.setItem(LS_STOCK, JSON.stringify(out));
+      alert(`Stock actualizado: ${out.length} registros`);
+      renderStock();
+    }
+    function exportarStock(){
+      const ws = XLSX.utils.json_to_sheet(STOCK.map(r => ({
+        Material: r.Material,
+        'Material Description': r.MaterialDescription,
+        SLoc: r.SLoc, Bin: r.Bin, Unrestrict: r.Unrestricted,
+        BUn: r.BUn, Batch: r.Batch, MTyp: r.MTyp, COSTO: r.COSTO
+      })));
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'STOCK');
+      XLSX.writeFile(wb, 'stock.xlsx');
+    }
+
+    // ===== TABS =====
+    const views = {
+      despacho:  $('#view-despacho'),
+      stock:     $('#view-stock'),
+      descargas: $('#view-descargas')
+    };
+
+    $all('#tabs .tab-btn').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        const tab = btn.dataset.tab;
+        // estilo activo
+        $all('#tabs .tab-btn').forEach(b=>{
+          b.classList.remove('bg-sky-600','text-white');
+          b.classList.add('bg-white','text-slate-700','border');
+        });
         btn.classList.add('bg-sky-600','text-white');
-        document.querySelectorAll('section[id^=\"view-\"]').forEach(s=>s.classList.add('hidden'));
-        document.getElementById('view-'+tab).classList.remove('hidden');
-        if(tab==='stock')renderStock();
-        if(tab==='descargas')renderDescargas();
+        btn.classList.remove('bg-white','text-slate-700','border');
+        // vistas
+        Object.keys(views).forEach(k => views[k].classList.toggle('hidden', k!==tab));
+
+        if(tab==='stock') renderStock();
+        if(tab==='descargas'){
+          if(SHARED_MODE){
+            await pullSharedDescargas();
+            renderDescargasTable(DESCARGAS_SHARED);
+          }else{
+            DESCARGAS_LOCAL = JSON.parse(localStorage.getItem(LS_DESC)||'[]');
+            renderDescargasTable(DESCARGAS_LOCAL);
+          }
+        }
       });
     });
+
+    // ===== EVENTOS =====
+    $('#btnBuscar').addEventListener('click', buscar);
+    $('#np').addEventListener('keydown', e=>{ if(e.key==='Enter') buscar(); });
+    $('#btnDespachar').addEventListener('click', despachar);
+    $('#btnBorrar').addEventListener('click', ()=>{ filasDespacho=[]; $('#np').value=''; renderDespacho(); });
+
+    $('#btnLimpiarDescargas').addEventListener('click', ()=>{
+      if(confirm('¿Vaciar la lista local de descargas?')){
+        localStorage.removeItem(LS_DESC);
+        DESCARGAS_LOCAL = [];
+        renderDescargasTable([]);
+      }
+    });
+
+    const fileExcel = $('#fileExcel');
+    $('#btnCargarExcel').addEventListener('click', ()=> fileExcel.click());
+    fileExcel.addEventListener('change', (e)=>{
+      const f=e.target.files[0];
+      if(f) importarExcel(f);
+      e.target.value='';
+    });
+    $('#btnExportarStock').addEventListener('click', exportarStock);
+
+    // Barra de sync
+    $('#btnSyncPull')?.addEventListener('click', async ()=>{
+      if(!SHARED_MODE) return;
+      await pullSharedDescargas();
+      if(!views.descargas.classList.contains('hidden')) renderDescargasTable(DESCARGAS_SHARED);
+      toast('Descargas actualizadas (pull)');
+    });
+    $('#btnSyncPush')?.addEventListener('click', async ()=>{
+      if(!SHARED_MODE) return;
+      const base = DESCARGAS_SHARED.length ? DESCARGAS_SHARED : JSON.parse(localStorage.getItem(LS_DESC)||'[]');
+      if(!base.length){ toast('No hay descargas para subir'); return; }
+      if(CAN_PUSH){
+        try{ await pushSharedDescargas(base); toast('Sincronizado en repositorio'); }
+        catch(e){ console.warn(e); downloadJSON('descargas.json', base); toast('No se pudo escribir; se descargó descargas.json'); }
+      }else{
+        downloadJSON('descargas.json', base);
+        toast('Descargas listas. Sube descargas.json al repo para compartir.');
+      }
+    });
+    $('#btnExportDesc')?.addEventListener('click', ()=>{
+      const base = SHARED_MODE ? DESCARGAS_SHARED : (JSON.parse(localStorage.getItem(LS_DESC)||'[]'));
+      downloadJSON('descargas.json', base||[]);
+    });
+
+    // ===== INICIAL =====
+    setSyncBar();
+
+    // Cargar STOCK (LS -> archivo)
+    const fromLS = localStorage.getItem(LS_STOCK);
+    if(fromLS){
+      try{ STOCK = JSON.parse(fromLS); }catch{ STOCK = STOCK_DATA||[]; }
+    }else{
+      STOCK = STOCK_DATA || [];
+    }
   </script>
 </body>
 </html>
