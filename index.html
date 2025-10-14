@@ -418,7 +418,19 @@
       document.getElementById('btnLimpiarDescargas').addEventListener('click', limpiarDescargas);
 
       // Inicialización: cargar descargas y preparar listas
+      // Carga inicial de descargas
       await pullDescargas();
+
+      // --- Actualización automática ---
+      // Para que la lista de descargas se actualice sola en todos los equipos, se configura un
+      // intervalo que consulta periódicamente el archivo descargas.json del repositorio (o
+      // LocalStorage). Si la vista de descargas está visible, re-renderiza la tabla.
+      setInterval(async () => {
+        await pullDescargas();
+        // Si actualmente se muestra la pestaña de descargas, refresca la tabla
+        const descTabHidden = document.getElementById('view-descargas').classList.contains('hidden');
+        if(!descTabHidden) renderDescargas();
+      }, 15000); // 15000 ms = 15 segundos
     }
     // Ejecutar inicialización
     init();
