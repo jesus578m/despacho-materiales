@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Despacho de Materiales</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+/* Scrollbar sutil */
+::-webkit-scrollbar{height:8px;width:8px}::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:6px}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body class="bg-slate-50 text-slate-900">
+<div class="max-w-[1200px] mx-auto p-4">
+<header class="flex items-center justify-between gap-4 mb-4">
+<h1 class="text-2xl font-bold">📦 Despacho de Materiales</h1>
+<nav class="flex gap-2" id="tabs">
+<button data-tab="despacho" class="tab-btn px-4 py-2 rounded-lg bg-sky-600 text-white">Despacho</button>
+<button data-tab="stock" class="tab-btn px-4 py-2 rounded-lg bg-white text-slate-700 border">Stock</button>
+<button data-tab="descargas" class="tab-btn px-4 py-2 rounded-lg bg-white text-slate-700 border">Descargas</button>
+</nav>
+</header>
+<!-- === DESPACHO === -->
+<section id="view-despacho" class="space-y-4">
+<!-- Cabecera equivalente a celdas combinadas N5, Q5, T5, W5 -->
+<div class="grid md:grid-cols-5 grid-cols-1 gap-3">
+<div class="col-span-2">
+<label class="text-xs text-slate-500">Número de parte</label>
+<div class="flex gap-2">
+<input id="np" class="flex-1 px-3 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-sky-500" placeholder="Escribe el número de parte…" />
+<button id="btnBuscar" class="px-4 py-2 rounded-lg bg-sky-600 text-white">Buscar</button>
+</div>
+</div>
+<div>
+<label class="text-xs text-slate-500">Matrícula (T5)</label>
+<input id="matricula" class="w-full px-3 py-2 rounded-lg border" />
+</div>
+<div>
+<label class="text-xs text-slate-500">N.E. Técnico (Q5)</label>
+<input id="neTecnico" class="w-full px-3 py-2 rounded-lg border" />
+</div>
+<div>
+<label class="text-xs text-slate-500">WO (W5)</label>
+<input id="wo" class="w-full px-3 py-2 rounded-lg border" />
+</div>
+</div>
+<div class="grid md:grid-cols-3 grid-cols-1 gap-3">
+<div>
+<label class="text-xs text-slate-500">Cliente</label>
+<input id="cliente" class="w-full px-3 py-2 rounded-lg border" placeholder="Opcional" />
+</div>
+<div>
+<label class="text-xs text-slate-500">No. Almacenista</label>
+<input id="noAlmacenista" class="w-full px-3 py-2 rounded-lg border" />
+</div>
+<div>
+<label class="text-xs text-slate-500">Usuario Almacén (N5)</label>
+<input id="usuarioAlmacen" class="w-full px-3 py-2 rounded-lg border" />
+</div>
+</div>
+<div class="rounded-xl border bg-white overflow-hidden">
+<div class="px-4 py-3 border-b bg-slate-50 font-semibold">Material</div>
+<div class="overflow-auto">
+<table class="min-w-full text-sm" id="tablaDespacho">
+<thead class="bg-slate-100 text-slate-600">
+<tr>
+<th class="px-2 py-2 text-left w-28">Alerta</th>
+<th class="px-2 py-2 text-left">Batch</th>
+<th class="px-2 py-2 text-left">Material</th>
+<th class="px-2 py-2 text-left">Material Description</th>
+<th class="px-2 py-2 text-left">BUn</th>
+<th class="px-2 py-2 text-left">MTyp</th>
+<th class="px-2 py-2 text-left">SLoc</th>
+<th class="px-2 py-2 text-left">Bin</th>
+<th class="px-2 py-2 text-right">Sum of Unrestricted</th>
+<th class="px-2 py-2 text-right">QTY Despachada</th>
+<th class="px-2 py-2 text-left">REMARK</th>
+<th class="px-2 py-2 text-left">COMENTARIOS</th>
+<th class="px-2 py-2 text-center">DESPACHO</th>
+</tr>
+</thead>
+<tbody id="bodyDespacho"></tbody>
+</table>
+</div>
+</div>
+<div class="flex items-center justify-between">
+<p class="text-xs text-slate-500">Tip: si una fila muestra <span class="font-semibold text-rose-600">SIN STOCK</span> no podrá despacharse.</p>
+<div class="flex gap-2">
+<button id="btnBorrar" class="px-4 py-2 rounded-lg border">Borrar filas</button>
+<button id="btnDespachar" class="px-4 py-2 rounded-lg bg-emerald-600 text-white">DESPACHAR MATERIAL</button>
+</div>
+</div>
+</section>
+<!-- === STOCK === -->
+<section id="view-stock" class="hidden">
+<div class="rounded-xl border bg-white overflow-hidden">
+<div class="flex items-center justify-between px-4 py-3 border-b bg-slate-50">
+<div class="font-semibold">STOCK</div>
+<div class="flex items-center gap-2">
+<input id="fileExcel" type="file" accept=".xlsx,.xls" class="hidden" />
+<button id="btnCargarExcel" class="px-3 py-1.5 rounded-lg border text-sm">Cargar Excel</button>
+<button id="btnExportarStock" class="px-3 py-1.5 rounded-lg border text-sm">Exportar</button>
+</div>
+</div>
+<div class="overflow-auto">
+<table class="min-w-full text-sm" id="tablaStock">
+<thead class="bg-slate-100 text-slate-600">
+<tr>
+<th class="px-2 py-2 text-left">Material</th>
+<th class="px-2 py-2 text-left">Material Description</th>
+<th class="px-2 py-2 text-left">SLoc</th>
+<th class="px-2 py-2 text-left">Bin</th>
+<th class="px-2 py-2 text-right">Unrestricted</th>
+<th class="px-2 py-2 text-left">BUn</th>
+<th class="px-2 py-2 text-left">Batch</th>
+<th class="px-2 py-2 text-left">MTyp</th>
+<th class="px-2 py-2 text-right">COSTO</th>
+</tr>
+</thead>
+<tbody id="bodyStock"></tbody>
+</table>
+</div>
+</div>
+</section>
+<!-- === DESCARGAS === -->
+<section id="view-descargas" class="hidden">
+<div class="rounded-xl border bg-white overflow-hidden">
+<div class="flex items-center justify-between px-4 py-3 border-b bg-slate-50">
+<div class="font-semibold">DESPACHOS REALIZADOS</div>
+<button id="btnLimpiarDescargas" class="px-3 py-1.5 rounded-lg border text-sm">Vaciar lista</button>
+</div>
+<div class="overflow-auto">
+<table class="min-w-full text-sm" id="tablaDescargas">
+<thead class="bg-slate-100 text-slate-600">
+<tr>
+<th class="px-2 py-2 text-left">MATRÍCULA</th>
+<th class="px-2 py-2 text-left">NP</th>
+<th class="px-2 py-2 text-left">DESCRIPCIÓN</th>
+<th class="px-2 py-2 text-left">W.O.</th>
+<th class="px-2 py-2 text-right">CANTIDAD</th>
+<th class="px-2 py-2 text-left">UM</th>
+<th class="px-2 py-2 text-left">SLOC</th>
+<th class="px-2 py-2 text-left">BATCH</th>
+<th class="px-2 py-2 text-left">N.E. TÉCNIC</th>
+<th class="px-2 py-2 text-left">USUARIO ALMACÉN</th>
+<th class="px-2 py-2 text-left">FECHA</th>
+<th class="px-2 py-2 text-left">COMENTARIO</th>
+</tr>
+</thead>
+<tbody id="bodyDescargas"></tbody>
+</table>
+</div>
+</div>
+</section>
+</div>
+<!-- Toast -->
+<div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 hidden">
+<div class="bg-emerald-600 text-white px-4 py-2 rounded-lg shadow-lg">Tu despacho ha sido completado</div>
+</div>
+<script>
+// ======= Datos de ejemplo (reemplaza con tu API/CSV si lo deseas) =======
+let STOCK = JSON.parse(localStorage.getItem('stock_v1')||'null') || [
+{Material:'HIELO', MaterialDescription:'HIELO', SLoc:'W001', Bin:'CONGERECEP', Unrestricted:15, BUn:'EA', Batch:'0000893207', MTyp:'ZNVA', COSTO:0},
+{Material:'653N0002-14', MaterialDescription:'DRAG FITTING', SLoc:'CS01', Bin:'AI02C01', Unrestricted:1, BUn:'EA', Batch:'0000809556', MTyp:'ZEXP', COSTO:535670.5},
+{Material:'653N0002-14', MaterialDescription:'DRAG FITTING', SLoc:'CS01', Bin:'AI02C01', Unrestricted:1, BUn:'EA', Batch:'0000809558', MTyp:'ZEXP', COSTO:535670.5},
+{Material:'51000-9', MaterialDescription:'F-POWER CONTROL UNIT-EDV COMP', SLoc:'CS11', Bin:'CC01E02', Unrestricted:1, BUn:'EA', Batch:'0000876292', MTyp:'ZROT', COSTO:305920.13},
+];
+// VALORES: umbrales por material -> si COSTO > threshold => "HMV <material>"
+const VALORES = {
+'653N0002-14': { etiqueta:'653N0002-14', threshold: 500000 },
+'HIELO': { etiqueta:'HIELO', threshold: 10 },
+'51000-9': { etiqueta:'51000-9', threshold: 250000 },
+};
+// ======= Estado en memoria/localStorage =======
+const LS_DESCARGAS_KEY = 'descargas_v1';
+function readDescargas(){
+try{ return JSON.parse(localStorage.getItem(LS_DESCARGAS_KEY) || '[]'); }catch(e){ return []; }
+}
+function writeDescargas(list){ localStorage.setItem(LS_DESCARGAS_KEY, JSON.stringify(list)); }
+// ======= Utilidades =======
+const LS_STOCK_KEY = 'stock_v1';
+function writeStockLS(list){ localStorage.setItem(LS_STOCK_KEY, JSON.stringify(list||[])); }
+function readStockLS(){
+try{ return JSON.parse(localStorage.getItem(LS_STOCK_KEY)||'[]'); }catch(e){ return []; }
+}
+function sumDespachado(material, sloc, batch){
+return readDescargas().filter(x => x.material===material && x.sloc===sloc && x.batch===batch)
+.reduce((s,x)=> s + Number(x.cantidad||0), 0);
+}
+function formatNumber(n){
+return Number(n).toLocaleString('es-MX', {maximumFractionDigits:2});
+}
+function toNumberLoose(v){
+if(v==null) return 0;
+if(typeof v==='number') return v;
+let s = String(v).trim();
+if(!s) return 0;
+// soporta coma decimal y separadores de miles
+const hasComma = s.indexOf(',')>-1, hasDot = s.indexOf('.')>-1;
+if(hasComma && hasDot){
+if(s.lastIndexOf('.')>s.lastIndexOf(',')) s = s.replace(/,/g,''); // 1,234.56
+else s = s.replace(/\./g,'').replace(/,/g,'.'); // 1.234,56
+} else if(hasComma){
+s = s.replace(/,/g,'.');
+}
+s = s.replace(/[^0-9.-]/g,'');
+const n = parseFloat(s);
+return isNaN(n)?0:n;
+}
+// Cargar Excel a STOCK usando SheetJS
+async function importarExcel(file){
+const data = await file.arrayBuffer();
+const wb = XLSX.read(data, {type:'array'});
+const wsname = wb.SheetNames[0];
+const ws = wb.Sheets[wsname];
+const rows = XLSX.utils.sheet_to_json(ws, {defval:''});
+const norm = s => String(s||'').toLowerCase().replace(/[^a-z0-9]/g,'');
+const out = [];
+for(const r of rows){
+// admite cabeceras: Material, Material Description, SLoc, Bin, Unrestrict/Unrestricted/Sum of Unrestricted, BUn, Batch, MTyp, COSTO
+const rec = {
+Material: r['Material']||r['material']||r['MAT']||'',
+MaterialDescription: r['Material Description']||r['material description']||r['Descripcion']||r['DESCRIPCION']||r['DESC']||'',
+SLoc: r['SLoc']||r['SLOC']||r['Almacen']||r['Almacén']||'',
+Bin: r['Bin']||r['BIN']||'',
+Unrestricted: r['Unrestrict']||r['Unrestricted']||r['Sum of Unrestricted']||r['SUM OF UNRESTRICTED']||r['Stock']||0,
+BUn: r['BUn']||r['UM']||r['Unidad']||'',
+Batch: r['Batch']||r['BATCH']||'',
+MTyp: r['MTyp']||r['MTYP']||'',
+COSTO: r['COSTO']||r['Costo']||r['COST']||0 };
+if(!String(rec.Material).trim()) continue;
+rec.Unrestricted = toNumberLoose(rec.Unrestricted);
+rec.COSTO = toNumberLoose(rec.COSTO);
+out.push(rec);
+}
+STOCK = out; // reemplaza dataset en memoria
+writeStockLS(out); // persiste
+renderStock();
+alert(`Stock actualizado: ${out.length} registros`);
+}
+// Exportar STOCK vigente a Excel
+function exportarStock(){
+const ws = XLSX.utils.json_to_sheet(STOCK, {header:['Material','MaterialDescription','SLoc','Bin','Unrestricted','BUn','Batch','MTyp','COSTO']});
+// Renombrar cabeceras como en Excel de origen
+ws['A1'].v='Material';
+ws['B1'].v='Material Description';
+ws['C1'].v='SLoc';
+ws['D1'].v='Bin';
+ws['E1'].v='Unrestrict';
+ws['F1'].v='BUn';
+ws['G1'].v='Batch';
+ws['H1'].v='MTyp';
+ws['I1'].v='COSTO';
+const wb = XLSX.utils.book_new();
+XLSX.utils.book_append_sheet(wb, ws, 'STOCK');
+XLSX.writeFile(wb, 'stock.xlsx');
+}
+// Agrupa por BIN para un NP
+function stockPorNP(np){
+const rows = STOCK.filter(x => (x.Material+"").toUpperCase() === (np+"").toUpperCase());
+const map = new Map();
+for(const r of rows){
+const key = r.Bin;
+if(!map.has(key)) map.set(key, {...r});
+else map.get(key).Unrestricted += Number(r.Unrestricted||0);
+}
+return Array.from(map.values());
+}
+// Render de vistas/menus
+const views = {
+despacho: document.getElementById('view-despacho'),
+stock: document.getElementById('view-stock'),
+descargas: document.getElementById('view-descargas')
+};
+for(const btn of document.querySelectorAll('#tabs .tab-btn')){
+btn.addEventListener('click', ()=>{
+const tab = btn.dataset.tab;
+for(const b of document.querySelectorAll('#tabs .tab-btn')){
+b.classList.remove('bg-sky-600','text-white');
+b.classList.add('bg-white','text-slate-700','border');
+}
+btn.classList.add('bg-sky-600','text-white');
+btn.classList.remove('bg-white','text-slate-700','border');
+for(const k of Object.keys(views)) views[k].classList.toggle('hidden', k!==tab);
+if(tab==='stock') renderStock();
+if(tab==='descargas') renderDescargas();
+})
+}
+// Render STOCK
+function renderStock(){
+const tb = document.getElementById('bodyStock');
+tb.innerHTML = '';
+for(const r of STOCK){
+tb.insertAdjacentHTML('beforeend',
+`<tr class="border-b">
+<td class="px-2 py-1">${r.Material||''}</td>
+<td class="px-2 py-1">${r.MaterialDescription||''}</td>
+<td class="px-2 py-1">${r.SLoc||''}</td>
+<td class="px-2 py-1">${r.Bin||''}</td>
+<td class="px-2 py-1 text-right">${formatNumber(r.Unrestricted||0)}</td>
+<td class="px-2 py-1">${r.BUn||''}</td>
+<td class="px-2 py-1">${r.Batch||''}</td>
+<td class="px-2 py-1">${r.MTyp||''}</td>
+<td class="px-2 py-1 text-right">${formatNumber(r.COSTO||0)}</td>
+</tr>`);
+}
+}
+// ======= DESPACHO =======
+let filasDespacho = []; // estado en memoria de las filas cargadas para el NP
+function buscar(){
+const np = document.getElementById('np').value.trim();
+if(!np){
+document.getElementById('bodyDespacho').innerHTML='';
+filasDespacho=[];
+return;
+}
+const items = stockPorNP(np);
+filasDespacho = items.map((r, idx)=>{
+const ya = sumDespachado(r.Material, r.SLoc, r.Batch);
+const disponible = Number(r.Unrestricted||0) - ya;
+// HMV
+let remark = '';
+const regla = VALORES[r.Material];
+if(regla && Number(r.COSTO)>Number(regla.threshold)) remark = `HMV ${regla.etiqueta}`;
+return {
+id: idx+1,
+alerta: disponible<=0 ? 'SIN STOCK' : '',
+batch: r.Batch,
+material: r.Material,
+descripcion: r.MaterialDescription,
+bun: r.BUn,
+mtyp: r.MTyp,
+sloc: r.SLoc,
+bin: r.Bin,
+stock: Number(r.Unrestricted||0),
+disponible,
+qty: 0,
+remark,
+comentario: '',
+check: false,
+costo: Number(r.COSTO||0)
+}
+});
+renderDespacho();
+}
+function renderDespacho(){
+const tb = document.getElementById('bodyDespacho');
+tb.innerHTML='';
+for(const f of filasDespacho){
+const danger = f.alerta==='SIN STOCK' || (f.qty>0 && f.qty>f.disponible);
+const alerta = danger? 'SIN STOCK' : '';
+tb.insertAdjacentHTML('beforeend',
+`<tr class="border-b ${danger? 'bg-rose-50':''}">
+<td class="px-2 py-1 text-rose-600 font-semibold">${alerta}</td>
+<td class="px-2 py-1">${f.batch||''}</td>
+<td class="px-2 py-1">${f.material}</td>
+<td class="px-2 py-1">${f.descripcion||''}</td>
+<td class="px-2 py-1">${f.bun||''}</td>
+<td class="px-2 py-1">${f.mtyp||''}</td>
+<td class="px-2 py-1">${f.sloc||''}</td>
+<td class="px-2 py-1">${f.bin||''}</td>
+<td class="px-2 py-1 text-right">${formatNumber(f.stock)} <span class="text-xs text-slate-500">(disp: ${formatNumber(f.disponible)})</span></td>
+<td class="px-2 py-1 text-right">
+<input type="number" min="0" step="0.01" value="${f.qty}" data-id="${f.id}" class="qty w-28 px-2 py-1 rounded-md border text-right" />
+</td>
+<td class="px-2 py-1">${f.remark||''}</td>
+<td class="px-2 py-1"><input data-id="${f.id}" class="coment w-56 px-2 py-1 rounded-md border" placeholder="Comentario" value="${f.comentario||''}"/></td>
+<td class="px-2 py-1 text-center">
+<input type="checkbox" ${f.check? 'checked':''} data-id="${f.id}" class="chk w-5 h-5" ${danger? 'disabled':''} />
+</td>
+</tr>`);
+}
+// Listeners de qty/coment/checkbox
+tb.querySelectorAll('.qty').forEach(inp=>{
+inp.addEventListener('input', e=>{
+const id = Number(e.target.dataset.id);
+const row = filasDespacho.find(x=>x.id===id);
+row.qty = Number(e.target.value||0);
+// recalcula alerta inmediata
+renderDespacho();
+})
+})
+tb.querySelectorAll('.coment').forEach(inp=>{
+inp.addEventListener('input', e=>{
+const id = Number(e.target.dataset.id);
+const row = filasDespacho.find(x=>x.id===id);
+row.comentario = e.target.value;
+})
+})
+tb.querySelectorAll('.chk').forEach(inp=>{
+inp.addEventListener('change', e=>{
+const id = Number(e.target.dataset.id);
+const row = filasDespacho.find(x=>x.id===id);
+row.check = e.target.checked;
+})
+})
+}
+function despachar(){
+const np = document.getElementById('np').value.trim();
+const matricula = document.getElementById('matricula').value.trim();
+const neTecnico = document.getElementById('neTecnico').value.trim();
+const usuarioAlmacen = document.getElementById('usuarioAlmacen').value.trim();
+const wo = document.getElementById('wo').value.trim();
+let list = readDescargas();
+let hechos = 0;
+for(const f of filasDespacho){
+const danger = (f.disponible<=0) || (f.qty>0 && f.qty>f.disponible);
+if(!f.check || !f.qty || danger) continue;
+list.push({
+matricula,
+np: f.material,
+descripcion: f.descripcion,
+wo,
+cantidad: Number(f.qty),
+um: f.bun,
+sloc: f.sloc,
+batch: f.batch,
+neTecnico,
+usuarioAlmacen,
+fecha: new Date().toISOString().replace('T',' ').slice(0,16),
+comentario: f.comentario,
+// claves para disponibilidad
+material: f.material
+});
+hechos++;
+}
+writeDescargas(list);
+if(hechos>0){
+// Limpiar filas despachadas
+filasDespacho = filasDespacho.filter(f=>!(f.check && f.qty));
+renderDespacho();
+// Limpiar cabeceras tipo celdas combinadas Q5/T5/W5
+document.getElementById('matricula').value = '';
+document.getElementById('neTecnico').value = '';
+document.getElementById('wo').value = '';
+// Toast
+const toast = document.getElementById('toast');
+toast.classList.remove('hidden');
+setTimeout(()=> toast.classList.add('hidden'), 2200);
+}
+}
+function borrarFilas(){
+// Borra todas las filas cargadas (equivalente a limpiar C:L)
+filasDespacho = [];
+document.getElementById('np').value = '';
+renderDespacho();
+}
+// DESCARGAS render & acciones
+function renderDescargas(){
+const tb = document.getElementById('bodyDescargas');
+tb.innerHTML='';
+for(const r of readDescargas()){
+tb.insertAdjacentHTML('beforeend',
+`<tr class="border-b">
+<td class="px-2 py-1">${r.matricula||''}</td>
+<td class="px-2 py-1">${r.np||''}</td>
+<td class="px-2 py-1">${r.descripcion||''}</td>
+<td class="px-2 py-1">${r.wo||''}</td>
+<td class="px-2 py-1 text-right">${formatNumber(r.cantidad||0)}</td>
+<td class="px-2 py-1">${r.um||''}</td>
+<td class="px-2 py-1">${r.sloc||''}</td>
+<td class="px-2 py-1">${r.batch||''}</td>
+<td class="px-2 py-1">${r.neTecnico||''}</td>
+<td class="px-2 py-1">${r.usuarioAlmacen||''}</td>
+<td class="px-2 py-1">${r.fecha||''}</td>
+<td class="px-2 py-1">${r.comentario||''}</td>
+</tr>`);
+}
+}
+// Eventos
+dodocument.getElementById('btnBuscar').addEventListener('click', buscar);
+// Enter en NP
+document.getElementById('np').addEventListener('keydown', e=>{
+  if(e.key==='Enter') buscar();
+});
+document.getElementById('btnDespachar').addEventListener('click', despachar);
+document.getElementById('btnBorrar').addEventListener('click', borrarFilas);
+document.getElementById('btnLimpiarDescargas').addEventListener('click', ()=>{
+  if(confirm('\u00bfVaciar la lista de descargas?')){
+    writeDescargas([]);
+    renderDescargas();
+  }
+});
+// Carga/Export de Excel
+const fileExcel = document.getElementById('fileExcel');
+document.getElementById('btnCargarExcel').addEventListener('click', ()=> fileExcel.click());
+fileExcel.addEventListener('change', (e)=>{
+  const f = e.target.files[0];
+  if(f) importarExcel(f);
+  e.target.value='';
+});
+document.getElementById('btnExportarStock').addEventListener('click', exportarStock);
+// Inicial
+renderStock();
+</script>
+</body>
+</html>
