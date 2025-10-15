@@ -449,6 +449,30 @@
 
     // ===== Exportar descargas a Excel =====
     function exportarDescargas(){
+      // Prepara datos en un formato plano (sin claves internas)
+      const data = (DESCARGAS || []).map(r => ({
+        'Matrícula': r.matricula || '',
+        'Cliente': r.cliente || '',
+        'NP': r.np || '',
+        'Descripción': r.descripcion || '',
+        'WO': r.wo || '',
+        'Cantidad': r.cantidad ?? 0,
+        'UM': r.um || '',
+        'SLoc': r.sloc || '',
+        'Batch': r.batch || '',
+        'N.E. Técnico': r.neTecnico || '',
+        'Usuario Almacén': r.usuarioAlmacen || '',
+        'Fecha': r.fecha || '',
+        'Comentario': r.comentario || ''
+      }));
+      const ws = XLSX.utils.json_to_sheet(data);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'DESCARGAS');
+      XLSX.writeFile(wb, 'descargas.xlsx');
+    }
+
+    // ===== Exportar descargas a Excel =====
+    function exportarDescargas(){
       // Prepara los datos: combina remoto y local para exportar siempre la lista completa
       const rows = (DESCARGAS || []).map(r => ({
         'MATRÍCULA': r.matricula || '',
@@ -500,6 +524,9 @@
     document.getElementById('btnDespachar').addEventListener('click', despachar);
     document.getElementById('btnBorrar').addEventListener('click', borrarFilas);
     document.getElementById('btnLimpiarDescargas').addEventListener('click', limpiarDescargas);
+
+    // Botón para exportar descargas a Excel
+    document.getElementById('btnExportarDescargas').addEventListener('click', exportarDescargas);
 
     // Exportar descargas a Excel
     document.getElementById('btnExportarDescargas').addEventListener('click', exportarDescargas);
