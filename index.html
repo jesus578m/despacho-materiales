@@ -53,7 +53,18 @@
       <div class="grid md:grid-cols-3 grid-cols-1 gap-3">
         <div>
           <label class="text-xs text-slate-500">Cliente</label>
-          <input id="cliente" class="w-full px-3 py-2 rounded-lg border" placeholder="Opcional" />
+          <!-- Selector de clientes predefinidos -->
+          <select id="cliente" class="w-full px-3 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-sky-500">
+            <option value="">Selecciona cliente</option>
+            <option value="DELTA">DELTA</option>
+            <option value="AMX">AMX</option>
+            <option value="ENDEAVOR">ENDEAVOR</option>
+            <option value="JSX">JSX</option>
+            <option value="PSA">PSA</option>
+            <option value="SCY">SCY</option>
+            <option value="AVELO">AVELO</option>
+            <option value="COPA">COPA</option>
+          </select>
         </div>
         <!-- Campo No. Almacenista eliminado a petición -->
         <div>
@@ -78,7 +89,7 @@
                 <th class="px-2 py-2 text-left">SLoc</th>
                 <th class="px-2 py-2 text-left">Bin</th>
                 <th class="px-2 py-2 text-right">Stock</th>
-                <th class="px-2 py-2 text-right">Cant. Despachada</th>
+                <th class="px-2 py-2 text-right">Cantidad</th>
                 <th class="px-2 py-2 text-left">REMARK</th>
                 <th class="px-2 py-2 text-left">COMENTARIOS</th>
                 <th class="px-2 py-2 text-center">DESPACHO</th>
@@ -109,6 +120,7 @@
             <thead class="bg-slate-100 text-slate-600">
               <tr>
                 <th class="px-2 py-2 text-left">MATRÍCULA</th>
+                <th class="px-2 py-2 text-left">CLIENTE</th>
                 <th class="px-2 py-2 text-left">NP</th>
                 <th class="px-2 py-2 text-left">DESCRIPCIÓN</th>
                 <th class="px-2 py-2 text-left">W.O.</th>
@@ -237,7 +249,7 @@
           const danger = (f.alerta==='SIN STOCK') || (f.qty>0 && f.qty>f.disponible);
           const alerta = danger ? 'SIN STOCK' : '';
           tb.insertAdjacentHTML('beforeend', `
-            <tr class="border-b ${danger ? 'bg-rose-50' : ''}">
+            <tr class="border-b ${danger ? 'bg-rose-50' : ''} hover:bg-sky-50 transition-colors">
               <td class="px-2 py-1 text-rose-600 font-semibold">${alerta}</td>
               <td class="px-2 py-1">${f.batch||''}</td>
               <td class="px-2 py-1">${f.material||''}</td>
@@ -284,9 +296,10 @@
         const tb = document.getElementById('bodyDescargas');
         tb.innerHTML = '';
         for(const r of DESCARGAS){
-          tb.insertAdjacentHTML('beforeend', `
-            <tr class="border-b">
+        tb.insertAdjacentHTML('beforeend', `
+            <tr class="border-b hover:bg-sky-50 transition-colors">
               <td class="px-2 py-1">${r.matricula||''}</td>
+              <td class="px-2 py-1">${r.cliente||''}</td>
               <td class="px-2 py-1">${r.np||''}</td>
               <td class="px-2 py-1">${r.descripcion||''}</td>
               <td class="px-2 py-1">${r.wo||''}</td>
@@ -339,6 +352,7 @@
       // Despacha los elementos seleccionados
       async function despachar(){
         const matricula      = document.getElementById('matricula').value.trim();
+        const cliente        = document.getElementById('cliente').value.trim();
         const neTecnico      = document.getElementById('neTecnico').value.trim();
         const usuarioAlmacen = document.getElementById('usuarioAlmacen').value.trim();
         const wo             = document.getElementById('wo').value.trim();
@@ -349,6 +363,7 @@
           if(!f.check || !f.qty || danger) continue;
           nuevos.push({
             matricula,
+            cliente,
             np: f.material,
             descripcion: f.descripcion,
             wo,
@@ -418,8 +433,12 @@
       document.getElementById('btnLimpiarDescargas').addEventListener('click', limpiarDescargas);
 
       // Inicialización: cargar descargas y preparar listas
-      // Carga inicial de descargas
+      // Carga inicial de descargas y renderiza si corresponde
       await pullDescargas();
+      // Si la vista de descargas está visible desde el inicio, mostrar la tabla
+      if(!document.getElementById('view-descargas').classList.contains('hidden')){
+        renderDescargas();
+      }
 
       // --- Actualización automática ---
       // Para que la lista de descargas se actualice sola en todos los equipos, se configura un
@@ -430,7 +449,7 @@
         // Si actualmente se muestra la pestaña de descargas, refresca la tabla
         const descTabHidden = document.getElementById('view-descargas').classList.contains('hidden');
         if(!descTabHidden) renderDescargas();
-      }, 15000); // 15000 ms = 15 segundos
+      }, 2000); // 2000 ms = 2 segundos (actualización casi instantánea)
     }
     // Ejecutar inicialización
     init();
