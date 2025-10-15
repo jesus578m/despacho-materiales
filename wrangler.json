@@ -1,0 +1,9 @@
+{
+  "name": "despacho-materiales",
+  "main": "src/worker.js",
+  "compatibility_date": "2025-10-15",
+  "assets": {
+    "directry": ".public",
+    "include": ["stock-data.js"]
+  }
+}
