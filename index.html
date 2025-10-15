@@ -147,22 +147,15 @@
     <div class="bg-emerald-600 text-white px-4 py-2 rounded-lg shadow-lg">Tu despacho ha sido completado</div>
   </div>
 
-  <!-- Carga opcional de configuración (config.js) -->
-  <script>
-    window.__CONFIG__ = null;
-    (async () => {
-      try {
-        const mod = await import('./config.js');
-        window.__CONFIG__ = mod.default || null;
-      } catch(e) {
-        // Si no existe config.js, queda en modo lectura sin token
-      }
-    })();
-  </script>
+  <!-- La configuración (config.js) se cargará de manera diferida en el inicializador -->
 
   <!-- Lógica de la aplicación -->
   <script type="module">
     import STOCK_DATA from './stock-data.js';
+    // Define configuración global para que exista antes de cargarla en init()
+    if (typeof window.__CONFIG__ === 'undefined') {
+      window.__CONFIG__ = null;
+    }
 
     // ===== Variables de estado =====
     let STOCK = STOCK_DATA || [];
@@ -217,8 +210,22 @@
         const GH = window.__CONFIG__?.github;
         if(GH){
           const rawUrl = `https://raw.githubusercontent.com/${GH.owner}/${GH.repo}/${GH.branch || 'main'}/descargas.json?t=${Date.now()}`;
-          const res = await fetch(rawUrl, {cache:'no-store'});
-          DESCARGAS_SHARED = res.ok ? await res.json() : [];
+          let ok = false;
+          try{
+            const res = await fetch(rawUrl, {cache:'no-store'});
+            if(res.ok){
+              DESCARGAS_SHARED = await res.json();
+              ok = true;
+            }
+          }catch(_){/* ignore */}
+          if(!ok){
+            // Fallback a jsDelivr (CDN) si falla raw.githubusercontent
+            const cdnUrl = `https://cdn.jsdelivr.net/gh/${GH.owner}/${GH.repo}@${GH.branch || 'main'}/descargas.json`;
+            try{
+              const res2 = await fetch(cdnUrl, {cache:'no-store'});
+              DESCARGAS_SHARED = res2.ok ? await res2.json() : [];
+            }catch(_){ DESCARGAS_SHARED = []; }
+          }
         } else {
           DESCARGAS_SHARED = [];
         }
@@ -533,6 +540,16 @@
 
     // ===== Inicialización =====
     (async function init(){
+      // Asegúrate de cargar la configuración antes de empezar (config.js puede definir token)
+      if(window.__CONFIG__ === null){
+        try{
+          const modCfg = await import('./config.js');
+          window.__CONFIG__ = modCfg.default || null;
+        }catch(e){
+          window.__CONFIG__ = null;
+        }
+      }
+
       await pullDescargas();
       // Si al cargar se muestra la vista de descargas, re-renderiza
       if(!views.descargas.classList.contains('hidden')) renderDescargas();
