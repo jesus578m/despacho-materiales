@@ -4,6 +4,6 @@ export default {
     owner: "jesus578m",
     repo:  "despacho-materiales",
     branch: "main",
-    token: "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"
+    token: "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"
   }
 };
