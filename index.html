@@ -4,21 +4,16 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Despacho de Materiales</title>
-
-  <!-- Tailwind CSS para estilos básicos -->
+  <!-- Tailwind CSS for basic styling -->
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    /* Scrollbar sutil */
+    /* Minimal custom styling for scrollbars */
     ::-webkit-scrollbar{height:8px;width:8px}
     ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:6px}
   </style>
-
-  <!-- Librería SheetJS para exportar descargas -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body class="bg-slate-50 text-slate-900">
   <div class="max-w-[1200px] mx-auto p-4">
-    <!-- Encabezado y navegación -->
     <header class="flex items-center justify-between gap-4 mb-4">
       <h1 class="text-2xl font-bold">📦 Despacho de Materiales</h1>
       <nav class="flex gap-2" id="tabs">
@@ -27,8 +22,9 @@
       </nav>
     </header>
 
-    <!-- Sección de despacho -->
+    <!-- DESPACHO -->
     <section id="view-despacho" class="space-y-4">
+      <!-- Input fields -->
       <div class="grid md:grid-cols-5 grid-cols-1 gap-3">
         <div class="col-span-2">
           <label class="text-xs text-slate-500">Número de parte</label>
@@ -69,9 +65,10 @@
           <label class="text-xs text-slate-500">Usuario Almacén (N5)</label>
           <input id="usuarioAlmacen" class="w-full px-3 py-2 rounded-lg border" />
         </div>
-        <div class="hidden"></div>
+        <div></div>
       </div>
 
+      <!-- Table for despacho -->
       <div class="rounded-xl border bg-white overflow-hidden">
         <div class="px-4 py-3 border-b bg-slate-50 font-semibold">Material</div>
         <div class="overflow-auto">
@@ -98,7 +95,7 @@
         </div>
       </div>
       <div class="flex items-center justify-between">
-        <p class="text-xs text-slate-500">Si aparece <span class="font-semibold text-rose-600">SIN STOCK</span>, no se podrá despachar.</p>
+        <p class="text-xs text-slate-500">Tip: si una fila muestra <span class="font-semibold text-rose-600">SIN STOCK</span> no podrá despacharse.</p>
         <div class="flex gap-2">
           <button id="btnBorrar" class="px-4 py-2 rounded-lg border">Borrar filas</button>
           <button id="btnDespachar" class="px-4 py-2 rounded-lg bg-emerald-600 text-white">DESPACHAR MATERIAL</button>
@@ -106,7 +103,7 @@
       </div>
     </section>
 
-    <!-- Sección de descargas -->
+    <!-- DESCARGAS -->
     <section id="view-descargas" class="hidden">
       <div class="rounded-xl border bg-white overflow-hidden">
         <div class="flex items-center justify-between px-4 py-3 border-b bg-slate-50">
@@ -142,240 +139,160 @@
     </section>
   </div>
 
-  <!-- Toast para notificaciones -->
+  <!-- Toast -->
   <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 hidden">
     <div class="bg-emerald-600 text-white px-4 py-2 rounded-lg shadow-lg">Tu despacho ha sido completado</div>
   </div>
 
-  <!-- La configuración (config.js) se cargará de manera diferida en el inicializador -->
-
-  <!-- Lógica de la aplicación -->
+  <!-- Script: main module -->
   <script type="module">
+    // Import stock data from external file
     import STOCK_DATA from './stock-data.js';
-    // Define configuración global para que exista antes de cargarla en init()
-    if (typeof window.__CONFIG__ === 'undefined') {
-      window.__CONFIG__ = null;
-    }
-
-    // ===== Variables de estado =====
+    // We'll load optional config in init
+    
+    // ----- Global state -----
     let STOCK = STOCK_DATA || [];
-    let filasDespacho = [];
-    // Descargas: base local y remota
-    const LS_DESC = 'descargas_v1';
+    let DESCARGAS_LOCAL = [];
     let DESCARGAS_SHARED = [];
-    let DESCARGAS_LOCAL  = [];
-    let DESCARGAS        = [];
+    let DESCARGAS = [];
+    let CONFIG = null;
+    let filasDespacho = [];
+    let currentTab = 'despacho';
 
-    // ===== Utilidades =====
-    const $    = (sel, ctx=document) => ctx.querySelector(sel);
-    const $all = (sel, ctx=document) => Array.from(ctx.querySelectorAll(sel));
-    const fmt  = n => Number(n||0).toLocaleString('es-MX',{maximumFractionDigits:2});
+    // ----- Utility functions -----
+    const $ = (s, ctx=document) => ctx.querySelector(s);
+    const $all = (s, ctx=document) => Array.from(ctx.querySelectorAll(s));
+    const fmt = n => Number(n||0).toLocaleString('es-MX', { maximumFractionDigits: 2 });
     const toNum = v => {
-      if(v==null) return 0;
-      if(typeof v==='number') return v;
+      if (v == null) return 0;
+      if (typeof v === 'number') return v;
       let s = String(v).trim();
-      if(!s) return 0;
+      if (!s) return 0;
       const hasC = s.includes(',');
       const hasD = s.includes('.');
-      if(hasC && hasD){
-        if(s.lastIndexOf('.') > s.lastIndexOf(',')) s = s.replace(/,/g,'');
-        else s = s.replace(/\./g,'').replace(/,/g,'.');
-      } else if(hasC){ s = s.replace(/,/g,'.'); }
-      s = s.replace(/[^0-9.-]/g,'');
+      if (hasC && hasD) {
+        if (s.lastIndexOf('.') > s.lastIndexOf(',')) s = s.replace(/,/g, '');
+        else s = s.replace(/\./g, '').replace(/,/g, '.');
+      } else if (hasC) {
+        s = s.replace(/,/g, '.');
+      }
+      s = s.replace(/[^0-9.-]/g, '');
       const n = parseFloat(s);
       return isNaN(n) ? 0 : n;
     };
-
-    function toast(msg='Tu despacho ha sido completado'){
+    function toast(msg) {
       const t = $('#toast');
       t.firstElementChild.textContent = msg;
       t.classList.remove('hidden');
       setTimeout(() => t.classList.add('hidden'), 1800);
     }
 
-    // ===== Descargas: funciones de sincronización =====
-    function loadLocalDescargas(){
-      try { DESCARGAS_LOCAL = JSON.parse(localStorage.getItem(LS_DESC) || '[]'); }
-      catch { DESCARGAS_LOCAL = []; }
+    // ----- Descargas: load/save/merge -----
+    function loadLocalDescargas() {
+      try {
+        DESCARGAS_LOCAL = JSON.parse(localStorage.getItem('descargas_v1') || '[]');
+      } catch {
+        DESCARGAS_LOCAL = [];
+      }
     }
-    function saveLocalDescargas(arr){
-      localStorage.setItem(LS_DESC, JSON.stringify(arr||[]));
+    function saveLocalDescargas(arr) {
+      localStorage.setItem('descargas_v1', JSON.stringify(arr || []));
       DESCARGAS_LOCAL = arr || [];
     }
-    function recomputeDescargas(){
+    function recomputeDescargas() {
       DESCARGAS = (DESCARGAS_SHARED || []).concat(DESCARGAS_LOCAL || []);
     }
-    async function pullDescargas(){
-      try {
-        const GH = window.__CONFIG__?.github;
-        if(GH){
-          const rawUrl = `https://raw.githubusercontent.com/${GH.owner}/${GH.repo}/${GH.branch || 'main'}/descargas.json?t=${Date.now()}`;
-          let ok = false;
-          try{
-            const res = await fetch(rawUrl, {cache:'no-store'});
-            if(res.ok){
-              DESCARGAS_SHARED = await res.json();
-              ok = true;
-            }
-          }catch(_){/* ignore */}
-          if(!ok){
-            // Fallback a jsDelivr (CDN) si falla raw.githubusercontent
-            const cdnUrl = `https://cdn.jsdelivr.net/gh/${GH.owner}/${GH.repo}@${GH.branch || 'main'}/descargas.json`;
-            try{
-              const res2 = await fetch(cdnUrl, {cache:'no-store'});
-              DESCARGAS_SHARED = res2.ok ? await res2.json() : [];
-            }catch(_){ DESCARGAS_SHARED = []; }
+
+    async function pullDescargas() {
+      // Fetch remote descargas.json using GitHub raw URL. Fallback to jsDelivr if needed.
+      const gh = CONFIG?.github;
+      let data = [];
+      if (gh) {
+          const urls = [
+            `https://raw.githubusercontent.com/${gh.owner}/${gh.repo}/${gh.branch || 'main'}/descargas.json`,
+            `https://cdn.jsdelivr.net/gh/${gh.owner}/${gh.repo}@${gh.branch || 'main'}/descargas.json`
+          ];
+          for (const url of urls) {
+            try {
+              const res = await fetch(url + '?t=' + Date.now(), { cache: 'no-store' });
+              if (res.ok) {
+                const json = await res.json();
+                if (Array.isArray(json)) {
+                  data = json;
+                  break;
+                }
+              }
+            } catch {}
           }
-        } else {
-          DESCARGAS_SHARED = [];
-        }
-      } catch(e){ DESCARGAS_SHARED = []; }
+      }
+      DESCARGAS_SHARED = data;
       loadLocalDescargas();
       recomputeDescargas();
     }
-    async function pushDescargas(){
-      const GH = window.__CONFIG__?.github;
-      if(!GH?.token) return false;
+
+    async function pushDescargas() {
+      // Push merged descargas to GitHub via API if token is provided
+      const gh = CONFIG?.github;
+      if (!gh || !gh.token) return false;
       try {
-        // Obtiene SHA actual de descargas.json
-        const metaRes = await fetch(`https://api.github.com/repos/${GH.owner}/${GH.repo}/contents/descargas.json?ref=${GH.branch || 'main'}`, {
-          headers: { 'Accept':'application/vnd.github+json', 'Authorization':`Bearer ${GH.token}` }
+        const metaRes = await fetch(`https://api.github.com/repos/${gh.owner}/${gh.repo}/contents/descargas.json?ref=${gh.branch || 'main'}`, {
+          headers: {
+            'Accept': 'application/vnd.github+json',
+            'Authorization': `Bearer ${gh.token}`
+          }
         });
         const meta = metaRes.ok ? await metaRes.json() : null;
-        const sha  = meta?.sha;
-        // Construye contenido: remote (shared) + local
-        const contentArr = (DESCARGAS_SHARED || []).concat(DESCARGAS_LOCAL || []);
-        const content = btoa(unescape(encodeURIComponent(JSON.stringify(contentArr, null, 2))));
+        const sha = meta?.sha;
+        // Merge shared (latest) and local
+        const merged = (DESCARGAS_SHARED || []).concat(DESCARGAS_LOCAL || []);
+        const content = btoa(unescape(encodeURIComponent(JSON.stringify(merged, null, 2))));
         const body = {
           message: `chore(descargas): update ${new Date().toISOString()}`,
           content,
-          branch: GH.branch || 'main',
+          branch: gh.branch || 'main',
           sha
         };
-        const putRes = await fetch(`https://api.github.com/repos/${GH.owner}/${GH.repo}/contents/descargas.json`, {
-          method:'PUT',
-          headers:{ 'Accept':'application/vnd.github+json', 'Authorization':`Bearer ${GH.token}`, 'Content-Type':'application/json' },
+        const putRes = await fetch(`https://api.github.com/repos/${gh.owner}/${gh.repo}/contents/descargas.json`, {
+          method: 'PUT',
+          headers: {
+            'Accept': 'application/vnd.github+json',
+            'Authorization': `Bearer ${gh.token}`,
+            'Content-Type': 'application/json'
+          },
           body: JSON.stringify(body)
         });
         return putRes.ok;
-      } catch(e){ console.warn('push error', e); return false; }
+      } catch (err) {
+        console.warn('pushDescargas error', err);
+        return false;
+      }
     }
 
-    // ===== Stock y búsqueda =====
-    function sumDespachado(material, sloc, batch){
-      return (DESCARGAS || []).filter(x => x.material === material && x.sloc === sloc && x.batch === batch).reduce((s,x) => s + Number(x.cantidad || 0), 0);
+    function sumDespachado(material, sloc, batch) {
+      return (DESCARGAS || []).filter(x => x.material === material && x.sloc === sloc && x.batch === batch).reduce((s, x) => s + Number(x.cantidad || 0), 0);
     }
-    function stockPorNP(np){
-      const rows = (STOCK || []).filter(x => String(x.Material || '').toUpperCase() === String(np || '').toUpperCase());
+
+    function stockPorNP(np) {
+      const rows = (STOCK || []).filter(r => String(r.Material || '').toUpperCase() === String(np || '').toUpperCase());
       const map = new Map();
-      for(const r of rows){
+      for (const r of rows) {
         const key = `${r.Bin}|${r.SLoc}|${r.Batch}`;
-        const total = toNum(r.Unrestricted);
-        if(!map.has(key)) map.set(key, {...r, Unrestricted: total});
-        else map.get(key).Unrestricted += total;
+        if (!map.has(key)) {
+          map.set(key, { ...r });
+        } else {
+          map.get(key).Unrestricted = toNum(map.get(key).Unrestricted) + toNum(r.Unrestricted);
+        }
       }
       return Array.from(map.values());
     }
 
-    // Actualiza la disponibilidad y alerta en las filas de despacho sin reiniciar otras propiedades
-    function actualizarDisponibilidad(){
-      // Recalcula la cantidad ya despachada y la disponibilidad para cada fila actual
-      for(const row of filasDespacho){
-        const ya = sumDespachado(row.material, row.sloc, row.batch);
-        row.disponible = toNum(row.stock) - ya;
-        row.alerta = row.disponible <= 0 ? 'SIN STOCK' : '';
+    function buscar() {
+      const np = $('#np').value.trim();
+      if (!np) {
+        filasDespacho = [];
+        renderDespacho();
+        return;
       }
-    }
-
-    // ===== Render de despacho =====
-    function renderDespacho(){
-      const tb = document.getElementById('bodyDespacho');
-      tb.innerHTML = '';
-      for(const f of filasDespacho){
-        const danger = f.alerta === 'SIN STOCK' || (f.qty > 0 && f.qty > f.disponible);
-        const alerta = danger ? 'SIN STOCK' : '';
-        tb.insertAdjacentHTML('beforeend', `
-          <tr class="border-b ${danger ? 'bg-rose-50' : ''} hover:bg-sky-50 transition-colors">
-            <td class="px-2 py-1 text-rose-600 font-semibold">${alerta}</td>
-            <td class="px-2 py-1">${f.batch || ''}</td>
-            <td class="px-2 py-1">${f.material}</td>
-            <td class="px-2 py-1">${f.descripcion || ''}</td>
-            <td class="px-2 py-1">${f.bun || ''}</td>
-            <td class="px-2 py-1">${f.mtyp || ''}</td>
-            <td class="px-2 py-1">${f.sloc || ''}</td>
-            <td class="px-2 py-1">${f.bin || ''}</td>
-            <td class="px-2 py-1 text-right">${fmt(f.stock)} <span class="text-xs text-slate-500">(disp: ${fmt(f.disponible)})</span></td>
-            <td class="px-2 py-1 text-right">
-              <input type="number" min="0" step="1" value="${f.qty}" data-id="${f.id}" class="qty w-24 px-2 py-1 rounded-md border text-right" />
-            </td>
-            <td class="px-2 py-1"></td>
-            <td class="px-2 py-1"><input data-id="${f.id}" class="coment w-56 px-2 py-1 rounded-md border" placeholder="Comentario" value="${f.comentario || ''}"/></td>
-            <td class="px-2 py-1 text-center"><input type="checkbox" ${f.check ? 'checked' : ''} data-id="${f.id}" class="chk w-5 h-5" ${danger ? 'disabled' : ''} /></td>
-          </tr>
-        `);
-      }
-      // Asignar listeners a las nuevas celdas
-      const tbody = document.getElementById('bodyDespacho');
-      tbody.querySelectorAll('.qty').forEach(inp => {
-        // Actualiza cantidad a cada cambio de entrada, sin re-renderizar
-        inp.addEventListener('input', e => {
-          const id = Number(e.target.dataset.id);
-          const row = filasDespacho.find(x => x.id === id);
-          row.qty = Math.floor(toNum(e.target.value || 0));
-        });
-        // Al finalizar la edición (change), recalcula alertas y re-renderiza
-        inp.addEventListener('change', e => {
-          const id = Number(e.target.dataset.id);
-          const row = filasDespacho.find(x => x.id === id);
-          row.qty = Math.floor(toNum(e.target.value || 0));
-          renderDespacho();
-        });
-      });
-      tbody.querySelectorAll('.coment').forEach(inp => {
-        inp.addEventListener('input', e => {
-          const id = Number(e.target.dataset.id);
-          const row = filasDespacho.find(x => x.id === id);
-          row.comentario = e.target.value;
-        });
-      });
-      tbody.querySelectorAll('.chk').forEach(inp => {
-        inp.addEventListener('change', e => {
-          const id = Number(e.target.dataset.id);
-          const row = filasDespacho.find(x => x.id === id);
-          row.check = e.target.checked;
-        });
-      });
-    }
-
-    // ===== Render de descargas =====
-    function renderDescargas(){
-      const tb = document.getElementById('bodyDescargas');
-      tb.innerHTML = '';
-      for(const r of (DESCARGAS || [])){
-        tb.insertAdjacentHTML('beforeend', `
-          <tr class="border-b hover:bg-sky-50 transition-colors">
-            <td class="px-2 py-1">${r.matricula || ''}</td>
-            <td class="px-2 py-1">${r.cliente || ''}</td>
-            <td class="px-2 py-1">${r.np || ''}</td>
-            <td class="px-2 py-1">${r.descripcion || ''}</td>
-            <td class="px-2 py-1">${r.wo || ''}</td>
-            <td class="px-2 py-1 text-right">${r.cantidad ?? 0}</td>
-            <td class="px-2 py-1">${r.um || ''}</td>
-            <td class="px-2 py-1">${r.sloc || ''}</td>
-            <td class="px-2 py-1">${r.batch || ''}</td>
-            <td class="px-2 py-1">${r.neTecnico || ''}</td>
-            <td class="px-2 py-1">${r.usuarioAlmacen || ''}</td>
-            <td class="px-2 py-1">${r.fecha || ''}</td>
-            <td class="px-2 py-1">${r.comentario || ''}</td>
-          </tr>
-        `);
-      }
-    }
-
-    // ===== Buscar NP y cargar filas de despacho =====
-    function buscar(){
-      const np = document.getElementById('np').value.trim();
-      if(!np){ filasDespacho = []; document.getElementById('bodyDespacho').innerHTML = ''; return; }
       const items = stockPorNP(np);
       filasDespacho = items.map((r, idx) => {
         const ya = sumDespachado(r.Material, r.SLoc, r.Batch);
@@ -402,18 +319,87 @@
       renderDespacho();
     }
 
-    // ===== Despachar =====
-    async function despachar(){
-      const matricula      = document.getElementById('matricula').value.trim();
-      const neTecnico      = document.getElementById('neTecnico').value.trim();
-      const usuarioAlmacen = document.getElementById('usuarioAlmacen').value.trim();
-      const wo             = document.getElementById('wo').value.trim();
-      const cliente        = document.getElementById('cliente')?.value || '';
-      const out = [];
-      for(const f of filasDespacho){
+    function actualizarDisponibilidad() {
+      // Update available values and row classes based on current DESCARGAS
+      for (const row of filasDespacho) {
+        const ya = sumDespachado(row.material, row.sloc, row.batch);
+        const disp = toNum(row.stock) - ya;
+        row.disponible = disp;
+        row.alerta = disp <= 0 ? 'SIN STOCK' : '';
+      }
+    }
+
+    function renderDespacho() {
+      const tb = $('#bodyDespacho');
+      tb.innerHTML = '';
+      for (const f of filasDespacho) {
+        const danger = f.alerta === 'SIN STOCK' || (f.qty > 0 && f.qty > f.disponible);
+        const alerta = danger ? 'SIN STOCK' : '';
+        tb.insertAdjacentHTML('beforeend', `
+          <tr class="border-b ${danger ? 'bg-rose-50' : ''} hover:bg-sky-50 transition-colors">
+            <td class="px-2 py-1 text-rose-600 font-semibold">${alerta}</td>
+            <td class="px-2 py-1">${f.batch || ''}</td>
+            <td class="px-2 py-1">${f.material}</td>
+            <td class="px-2 py-1">${f.descripcion || ''}</td>
+            <td class="px-2 py-1">${f.bun || ''}</td>
+            <td class="px-2 py-1">${f.mtyp || ''}</td>
+            <td class="px-2 py-1">${f.sloc || ''}</td>
+            <td class="px-2 py-1">${f.bin || ''}</td>
+            <td class="px-2 py-1 text-right">${fmt(f.stock)} <span class="text-xs text-slate-500">(disp: ${fmt(f.disponible)})</span></td>
+            <td class="px-2 py-1 text-right">
+              <input type="number" min="0" step="1" value="${f.qty}" data-id="${f.id}" class="qty w-20 px-2 py-1 rounded-md border text-right" />
+            </td>
+            <td class="px-2 py-1">${f.remark || ''}</td>
+            <td class="px-2 py-1">
+              <input data-id="${f.id}" class="coment w-56 px-2 py-1 rounded-md border" placeholder="Comentario" value="${f.comentario || ''}" />
+            </td>
+            <td class="px-2 py-1 text-center">
+              <input type="checkbox" data-id="${f.id}" class="chk w-5 h-5" ${f.check ? 'checked' : ''} ${danger ? 'disabled' : ''} />
+            </td>
+          </tr>
+        `);
+      }
+      // Attach events on each input without re-rendering entire table on each keypress
+      const tbody = $('#bodyDespacho');
+      tbody.querySelectorAll('.qty').forEach(inp => {
+        const id = Number(inp.dataset.id);
+        const row = filasDespacho.find(x => x.id === id);
+        inp.addEventListener('input', e => {
+          row.qty = Math.floor(toNum(e.target.value || 0));
+        });
+        // On blur or change, recompute row class and available highlight
+        inp.addEventListener('change', () => {
+          actualizarDisponibilidad();
+          renderDespacho();
+        });
+      });
+      tbody.querySelectorAll('.coment').forEach(inp => {
+        const id = Number(inp.dataset.id);
+        const row = filasDespacho.find(x => x.id === id);
+        inp.addEventListener('input', e => {
+          row.comentario = e.target.value;
+        });
+      });
+      tbody.querySelectorAll('.chk').forEach(inp => {
+        const id = Number(inp.dataset.id);
+        const row = filasDespacho.find(x => x.id === id);
+        inp.addEventListener('change', e => {
+          row.check = e.target.checked;
+        });
+      });
+    }
+
+    async function despachar() {
+      const matricula = $('#matricula').value.trim();
+      const neTecnico = $('#neTecnico').value.trim();
+      const usuarioAlmacen = $('#usuarioAlmacen').value.trim();
+      const wo = $('#wo').value.trim();
+      const cliente = $('#cliente').value;
+      const nuevos = [];
+      for (const f of filasDespacho) {
         const danger = (f.disponible <= 0) || (f.qty > 0 && f.qty > f.disponible);
-        if(!f.check || !f.qty || danger) continue;
-        out.push({
+        if (!f.check || !f.qty || danger) continue;
+        nuevos.push({
           matricula,
           cliente,
           np: f.material,
@@ -425,146 +411,141 @@
           batch: f.batch,
           neTecnico,
           usuarioAlmacen,
-          fecha: new Date().toISOString().replace('T',' ').slice(0,16),
+          fecha: new Date().toISOString().replace('T', ' ').slice(0, 16),
           comentario: f.comentario,
           material: f.material
         });
       }
-      if(out.length === 0) return;
-      // Añadir al local para efecto inmediato
+      if (nuevos.length === 0) return;
+      // Add to local
       loadLocalDescargas();
-      const merged = (DESCARGAS_LOCAL || []).concat(out);
-      saveLocalDescargas(merged);
+      const mergedLocal = (DESCARGAS_LOCAL || []).concat(nuevos);
+      saveLocalDescargas(mergedLocal);
       recomputeDescargas();
-      // Intentar push al repo (si hay token)
+      // Attempt push to repo
       const pushed = await pushDescargas();
-      if(pushed) await pullDescargas();
-      // Limpiar filas marcadas
+      if (pushed) {
+        await pullDescargas();
+      }
+      // Clear selected rows
       filasDespacho = filasDespacho.filter(f => !(f.check && f.qty));
-      // Recalcula disponibilidad para las filas restantes antes de re-renderizar
       actualizarDisponibilidad();
       renderDespacho();
-      if(!document.getElementById('view-descargas').classList.contains('hidden')) renderDescargas();
-      toast(pushed ? 'Sincronizado en repositorio' : 'Despacho guardado (local)');
+      if (currentTab === 'descargas') renderDescargas();
+      toast(pushed ? 'Sincronizado en repositorio' : 'Despacho guardado localmente');
     }
 
-    // ===== Limpiar filas despacho =====
-    function borrarFilas(){ filasDespacho = []; document.getElementById('np').value = ''; renderDespacho(); }
+    function renderDescargas() {
+      const tb = $('#bodyDescargas');
+      tb.innerHTML = '';
+      for (const r of (DESCARGAS || [])) {
+        tb.insertAdjacentHTML('beforeend', `
+          <tr class="border-b hover:bg-sky-50 transition-colors">
+            <td class="px-2 py-1">${r.matricula || ''}</td>
+            <td class="px-2 py-1">${r.cliente || ''}</td>
+            <td class="px-2 py-1">${r.np || ''}</td>
+            <td class="px-2 py-1">${r.descripcion || ''}</td>
+            <td class="px-2 py-1">${r.wo || ''}</td>
+            <td class="px-2 py-1 text-right">${r.cantidad ?? 0}</td>
+            <td class="px-2 py-1">${r.um || ''}</td>
+            <td class="px-2 py-1">${r.sloc || ''}</td>
+            <td class="px-2 py-1">${r.batch || ''}</td>
+            <td class="px-2 py-1">${r.neTecnico || ''}</td>
+            <td class="px-2 py-1">${r.usuarioAlmacen || ''}</td>
+            <td class="px-2 py-1">${r.fecha || ''}</td>
+            <td class="px-2 py-1">${r.comentario || ''}</td>
+          </tr>
+        `);
+      }
+    }
 
-    // ===== Limpiar descargas locales =====
-    function limpiarDescargas(){ if(confirm('¿Vaciar la lista local de descargas?')){ localStorage.removeItem(LS_DESC); DESCARGAS_LOCAL = []; recomputeDescargas(); renderDescargas(); } }
-
-    // ===== Exportar descargas a Excel =====
-    function exportarDescargas(){
-      // Prepara datos en un formato plano (sin claves internas)
-      const data = (DESCARGAS || []).map(r => ({
+    // Export descargas as Excel
+    async function exportDescargas() {
+      // Use SheetJS to convert JSON to worksheet and save as xlsx
+      const rows = (DESCARGAS || []).map(r => ({
         'Matrícula': r.matricula || '',
         'Cliente': r.cliente || '',
         'NP': r.np || '',
         'Descripción': r.descripcion || '',
-        'WO': r.wo || '',
+        'W.O.': r.wo || '',
         'Cantidad': r.cantidad ?? 0,
         'UM': r.um || '',
-        'SLoc': r.sloc || '',
+        'SLOC': r.sloc || '',
         'Batch': r.batch || '',
         'N.E. Técnico': r.neTecnico || '',
         'Usuario Almacén': r.usuarioAlmacen || '',
         'Fecha': r.fecha || '',
         'Comentario': r.comentario || ''
       }));
-      const ws = XLSX.utils.json_to_sheet(data);
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'DESCARGAS');
-      XLSX.writeFile(wb, 'descargas.xlsx');
+      const { utils, writeFile, book_new, book_append_sheet, json_to_sheet } = await import('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js');
+      const ws = json_to_sheet(rows);
+      const wb = book_new();
+      book_append_sheet(wb, ws, 'Descargas');
+      writeFile(wb, 'descargas.xlsx');
     }
 
-    // ===== Exportar descargas a Excel =====
-    function exportarDescargas(){
-      // Prepara los datos: combina remoto y local para exportar siempre la lista completa
-      const rows = (DESCARGAS || []).map(r => ({
-        'MATRÍCULA': r.matricula || '',
-        'CLIENTE': r.cliente || '',
-        'NP': r.np || '',
-        'DESCRIPCIÓN': r.descripcion || '',
-        'W.O.': r.wo || '',
-        'CANTIDAD': r.cantidad ?? 0,
-        'UM': r.um || '',
-        'SLOC': r.sloc || '',
-        'BATCH': r.batch || '',
-        'N.E. TÉCNICO': r.neTecnico || '',
-        'USUARIO ALMACÉN': r.usuarioAlmacen || '',
-        'FECHA': r.fecha || '',
-        'COMENTARIO': r.comentario || ''
-      }));
-      // Crea la hoja y libro de trabajo
-      const ws = XLSX.utils.json_to_sheet(rows, {
-        header: ['MATRÍCULA','CLIENTE','NP','DESCRIPCIÓN','W.O.','CANTIDAD','UM','SLOC','BATCH','N.E. TÉCNICO','USUARIO ALMACÉN','FECHA','COMENTARIO']
+    // ----- Tab switching -----
+    function switchTab(tab) {
+      currentTab = tab;
+      document.querySelectorAll('#tabs .tab-btn').forEach(btn => {
+        btn.classList.remove('bg-sky-600', 'text-white');
+        btn.classList.add('bg-white', 'text-slate-700', 'border');
       });
-      const wb = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(wb, ws, 'DESPACHOS');
-      // Genera el archivo Excel para descargar
-      XLSX.writeFile(wb, 'descargas.xlsx');
-    }
-
-    // ===== Manejo de pestañas =====
-    const views = { despacho: document.getElementById('view-despacho'), descargas: document.getElementById('view-descargas') };
-    document.querySelectorAll('#tabs .tab-btn').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const tab = btn.dataset.tab;
-        document.querySelectorAll('#tabs .tab-btn').forEach(b => {
-          b.classList.remove('bg-sky-600','text-white');
-          b.classList.add('bg-white','text-slate-700','border');
-        });
-        btn.classList.add('bg-sky-600','text-white');
-        btn.classList.remove('bg-white','text-slate-700','border');
-        Object.keys(views).forEach(k => views[k].classList.toggle('hidden', k !== tab));
-        if(tab === 'descargas'){
-          await pullDescargas();
-          renderDescargas();
-        }
-      });
-    });
-
-    // ===== Listeners principales =====
-    document.getElementById('btnBuscar').addEventListener('click', buscar);
-    document.getElementById('np').addEventListener('keydown', e => { if(e.key === 'Enter') buscar(); });
-    document.getElementById('btnDespachar').addEventListener('click', despachar);
-    document.getElementById('btnBorrar').addEventListener('click', borrarFilas);
-    document.getElementById('btnLimpiarDescargas').addEventListener('click', limpiarDescargas);
-
-    // Botón para exportar descargas a Excel
-    document.getElementById('btnExportarDescargas').addEventListener('click', exportarDescargas);
-
-    // Exportar descargas a Excel
-    document.getElementById('btnExportarDescargas').addEventListener('click', exportarDescargas);
-
-    // ===== Inicialización =====
-    (async function init(){
-      // Asegúrate de cargar la configuración antes de empezar (config.js puede definir token)
-      if(window.__CONFIG__ === null){
-        try{
-          const modCfg = await import('./config.js');
-          window.__CONFIG__ = modCfg.default || null;
-        }catch(e){
-          window.__CONFIG__ = null;
-        }
+      document.querySelector(`[data-tab="${tab}"]`).classList.add('bg-sky-600', 'text-white');
+      document.querySelector(`[data-tab="${tab}"]`).classList.remove('bg-white', 'text-slate-700', 'border');
+      document.querySelectorAll('section[id^="view-"]').forEach(sec => sec.classList.add('hidden'));
+      document.getElementById('view-' + tab).classList.remove('hidden');
+      if (tab === 'descargas') {
+        renderDescargas();
       }
+    }
 
+    // ----- Initialization -----
+    async function init() {
+      // Load config (if exists)
+      try {
+        const mod = await import('./config.js');
+        CONFIG = mod.default || null;
+      } catch {
+        CONFIG = null;
+      }
+      // Load local descargas and remote
+      loadLocalDescargas();
       await pullDescargas();
-      // Si al cargar se muestra la vista de descargas, re-renderiza
-      if(!views.descargas.classList.contains('hidden')) renderDescargas();
-      // Actualización periódica cada 2 segundos: actualiza descargas y, si hay filas, recalcula disponibilidad
+      // Bind events
+      $('#btnBuscar').addEventListener('click', buscar);
+      $('#np').addEventListener('keydown', e => { if (e.key === 'Enter') buscar(); });
+      $('#btnDespachar').addEventListener('click', despachar);
+      $('#btnBorrar').addEventListener('click', () => {
+        filasDespacho = [];
+        $('#np').value = '';
+        renderDespacho();
+      });
+      $('#btnLimpiarDescargas').addEventListener('click', () => {
+        if (confirm('¿Vaciar la lista local de descargas?')) {
+          localStorage.removeItem('descargas_v1');
+          DESCARGAS_LOCAL = [];
+          recomputeDescargas();
+          if (currentTab === 'descargas') renderDescargas();
+        }
+      });
+      $('#btnExportarDescargas').addEventListener('click', exportDescargas);
+      // Tabs
+      document.querySelectorAll('#tabs .tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+      });
+      // Auto refresh every 2s: update remote data and availability
       setInterval(async () => {
         await pullDescargas();
-        if(!views.descargas.classList.contains('hidden')) renderDescargas();
-        // Si hay filas con un NP cargado, recalcula solo la disponibilidad para evitar reiniciar cantidades o selección
-        const npVal = document.getElementById('np').value.trim();
-        if(npVal && filasDespacho.length){
+        if (filasDespacho.length > 0) {
           actualizarDisponibilidad();
           renderDespacho();
         }
+        if (currentTab === 'descargas') renderDescargas();
       }, 2000);
-    })();
+    }
+    // Start the app
+    init();
   </script>
 </body>
 </html>
