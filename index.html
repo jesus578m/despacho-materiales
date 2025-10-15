@@ -156,6 +156,9 @@
     let DESCARGAS_SHARED = [];
     let DESCARGAS = [];
     let CONFIG = null;
+    // Optional Cloudflare worker URL for remote updates. If set in config.js, the app
+    // will post new dispatch records to this URL instead of using the GitHub API.
+    let WORKER_URL = null;
     let filasDespacho = [];
     let currentTab = 'despacho';
 
@@ -417,17 +420,35 @@
         });
       }
       if (nuevos.length === 0) return;
-      // Add to local
+      // Add to local for immediate update
       loadLocalDescargas();
       const mergedLocal = (DESCARGAS_LOCAL || []).concat(nuevos);
       saveLocalDescargas(mergedLocal);
       recomputeDescargas();
-      // Attempt push to repo
-      const pushed = await pushDescargas();
-      if (pushed) {
-        await pullDescargas();
+      // Try to persist remotely: via worker if defined, otherwise via GitHub API
+      let pushed = false;
+      if (WORKER_URL) {
+        try {
+          for (const rec of nuevos) {
+            const res = await fetch(WORKER_URL, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ action: 'append', record: rec })
+            });
+            if (!res.ok) throw new Error('Worker error');
+          }
+          pushed = true;
+          await pullDescargas();
+        } catch (e) {
+          console.warn('worker push failed', e);
+        }
+      } else {
+        pushed = await pushDescargas();
+        if (pushed) {
+          await pullDescargas();
+        }
       }
-      // Clear selected rows
+      // Clear selected rows from internal state
       filasDespacho = filasDespacho.filter(f => !(f.check && f.qty));
       actualizarDisponibilidad();
       renderDespacho();
@@ -506,8 +527,11 @@
       try {
         const mod = await import('./config.js');
         CONFIG = mod.default || null;
+        // If config defines a workerUrl, use it
+        WORKER_URL = CONFIG?.workerUrl || null;
       } catch {
         CONFIG = null;
+        WORKER_URL = null;
       }
       // Load local descargas and remote
       loadLocalDescargas();
