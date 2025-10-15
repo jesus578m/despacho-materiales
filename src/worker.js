@@ -9,72 +9,88 @@
 //   GH_TOKEN  – Personal access token with "repo" or "contents:write" scope
 
 export default {
-  async fetch(request, env) {
-    if (request.method !== 'POST') {
-      return new Response('Method not allowed', { status: 405 });
+  async fetch(req, env) {
+    const url = new URL(req.url);
+    const { pathname } = url;
+
+    // ---------- CORS ----------
+    const CORS = {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET,POST,OPTIONS,PUT,DELETE",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    };
+    if (req.method === "OPTIONS") return new Response(null, { headers: CORS });
+
+    // Helpers
+    const json = (data, status = 200, extraHeaders = {}) =>
+      new Response(JSON.stringify(data), {
+        status,
+        headers: { "Content-Type": "application/json", ...CORS, ...extraHeaders },
+      });
+
+    // ---------- API: /api/records ----------
+    if (pathname === "/api/records") {
+      if (req.method === "POST") {
+        let body = {};
+        try { body = await req.json(); } catch {}
+        const id = crypto.randomUUID();
+        const ts = Date.now();
+        const item = { id, ts, ...body };
+
+        // Guarda el registro
+        await env.DESPACHO_KV.put(`record:${id}`, JSON.stringify(item));
+
+        // Actualiza índice
+        const idx = JSON.parse((await env.DESPACHO_KV.get("index")) || "[]");
+        idx.push({ id, ts });
+        await env.DESPACHO_KV.put("index", JSON.stringify(idx));
+
+        return json({ ok: true, id });
+      }
+
+      if (req.method === "GET") {
+        const limit = Number(url.searchParams.get("limit") || 100);
+        const idx = JSON.parse((await env.DESPACHO_KV.get("index")) || "[]")
+          .sort((a, b) => b.ts - a.ts)
+          .slice(0, limit);
+
+        const items = await Promise.all(
+          idx.map(async ({ id }) => JSON.parse(await env.DESPACHO_KV.get(`record:${id}`)))
+        );
+
+        return json({ items });
+      }
+
+      return json({ error: "Method not allowed" }, 405, { Allow: "GET, POST, OPTIONS" });
     }
-    let body;
-    try {
-      body = await request.json();
-    } catch {
-      return new Response('Invalid JSON', { status: 400 });
-    }
-    const { action, record } = body || {};
-    if (action !== 'append' || !record) {
-      return new Response('Invalid payload', { status: 400 });
-    }
-    // Configuration from environment variables
-    const owner = env.GH_OWNER || 'jesus578m';
-    const repo = env.GH_REPO || 'despacho-materiales';
-    const branch = env.GH_BRANCH || 'main';
-    const token = env.GH_TOKEN;
-    if (!token) {
-      return new Response('Missing GitHub token in environment', { status: 500 });
-    }
-    try {
-      // Fetch existing descargas.json to get SHA and data
-      const metaRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/descargas.json?ref=${branch}`, {
+
+    // ---------- API: /api/descargas (CSV en vivo) ----------
+    if (pathname === "/api/descargas" && req.method === "GET") {
+      const idx = JSON.parse((await env.DESPACHO_KV.get("index")) || "[]")
+        .sort((a, b) => b.ts - a.ts);
+
+      const items = await Promise.all(
+        idx.map(async ({ id }) => JSON.parse(await env.DESPACHO_KV.get(`record:${id}`)))
+      );
+
+      const cols = ["id","ts","tecnico","material","cantidad","po","comentarios"];
+      const header = cols.join(",");
+      const lines = items.map(o =>
+        cols.map(c => `"${String(o?.[c] ?? "").replace(/"/g,'""')}"`).join(",")
+      );
+      const csv = [header, ...lines].join("\n");
+
+      return new Response(csv, {
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'User-Agent': 'cf-worker',
-          'Accept': 'application/vnd.github+json'
+          "Content-Type": "text/csv; charset=utf-8",
+          "Content-Disposition": `attachment; filename="despachos_${new Date().toISOString().slice(0,10)}.csv"`,
+          ...CORS
         }
       });
-      if (!metaRes.ok) {
-        return new Response('Failed to fetch file metadata', { status: metaRes.status });
-      }
-      const meta = await metaRes.json();
-      let data = [];
-      if (meta && meta.content) {
-        // GitHub returns base64-encoded content
-        data = JSON.parse(atob(meta.content.replace(/\n/g, '')));
-      }
-      data.push(record);
-      const newContent = btoa(unescape(encodeURIComponent(JSON.stringify(data, null, 2))));
-      // Prepare commit
-      const bodyUpdate = {
-        message: `chore(descargas): append via worker on ${new Date().toISOString()}`,
-        content: newContent,
-        branch,
-        sha: meta.sha
-      };
-      const putRes = await fetch(`https://api.github.com/repos/${owner}/${repo}/contents/descargas.json`, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'User-Agent': 'cf-worker',
-          'Accept': 'application/vnd.github+json',
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(bodyUpdate)
-      });
-      if (!putRes.ok) {
-        const text = await putRes.text();
-        return new Response('Failed to update file: ' + text, { status: putRes.status });
-      }
-      return new Response('OK', { status: 200 });
-    } catch (err) {
-      return new Response('Error: ' + err.message, { status: 500 });
     }
+
+    // ---------- Sitio estático (Assets) ----------
+    // Todo lo que no sea /api/* se sirve desde /public
+    return env.ASSETS.fetch(req);
   }
 };
