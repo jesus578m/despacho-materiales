@@ -3,6 +3,7 @@
   "main": "src/worker.js",
   "compatibility_date": "2025-10-15",
   "assets": {
-    "directory": "public"
+    "directory": "public",
+    "binding": "ASSETS"        // <— desactiva el auto-serve y te da control
   }
 }
