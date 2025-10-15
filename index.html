@@ -5,19 +5,15 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Despacho de Materiales</title>
 
-  <!-- Tailwind CSS for styling -->
+  <!-- Tailwind -->
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    /* Personalización de la barra de desplazamiento */
     ::-webkit-scrollbar{height:8px;width:8px}
     ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:6px}
   </style>
-  <!-- Librería SheetJS para soporte de Excel si se requiere en el futuro -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body class="bg-slate-50 text-slate-900">
   <div class="max-w-[1200px] mx-auto p-4">
-    <!-- Encabezado con navegación -->
     <header class="flex items-center justify-between gap-4 mb-4">
       <h1 class="text-2xl font-bold">📦 Despacho de Materiales</h1>
       <nav class="flex gap-2" id="tabs">
@@ -26,9 +22,8 @@
       </nav>
     </header>
 
-    <!-- Vista de Despacho -->
+    <!-- DESPACHO -->
     <section id="view-despacho" class="space-y-4">
-      <!-- Datos generales del despacho -->
       <div class="grid md:grid-cols-5 grid-cols-1 gap-3">
         <div class="col-span-2">
           <label class="text-xs text-slate-500">Número de parte</label>
@@ -50,30 +45,29 @@
           <input id="wo" class="w-full px-3 py-2 rounded-lg border" />
         </div>
       </div>
+
       <div class="grid md:grid-cols-3 grid-cols-1 gap-3">
         <div>
           <label class="text-xs text-slate-500">Cliente</label>
-          <!-- Selector de clientes predefinidos -->
           <select id="cliente" class="w-full px-3 py-2 rounded-lg border focus:outline-none focus:ring-2 focus:ring-sky-500">
-            <option value="">Selecciona cliente</option>
-            <option value="DELTA">DELTA</option>
-            <option value="AMX">AMX</option>
-            <option value="ENDEAVOR">ENDEAVOR</option>
-            <option value="JSX">JSX</option>
-            <option value="PSA">PSA</option>
-            <option value="SCY">SCY</option>
-            <option value="AVELO">AVELO</option>
-            <option value="COPA">COPA</option>
+            <option value="">— Selecciona cliente —</option>
+            <option>DELTA</option>
+            <option>AMX</option>
+            <option>ENDEAVOR</option>
+            <option>JSX</option>
+            <option>PSA</option>
+            <option>SCY</option>
+            <option>AVELO</option>
+            <option>COPA</option>
           </select>
         </div>
-        <!-- Campo No. Almacenista eliminado a petición -->
         <div>
           <label class="text-xs text-slate-500">Usuario Almacén (N5)</label>
           <input id="usuarioAlmacen" class="w-full px-3 py-2 rounded-lg border" />
         </div>
+        <div class="hidden"></div>
       </div>
 
-      <!-- Tabla de materiales para despachar -->
       <div class="rounded-xl border bg-white overflow-hidden">
         <div class="px-4 py-3 border-b bg-slate-50 font-semibold">Material</div>
         <div class="overflow-auto">
@@ -83,12 +77,12 @@
                 <th class="px-2 py-2 text-left w-28">Alerta</th>
                 <th class="px-2 py-2 text-left">Batch</th>
                 <th class="px-2 py-2 text-left">Material</th>
-                <th class="px-2 py-2 text-left">Descripción</th>
+                <th class="px-2 py-2 text-left">Material Description</th>
                 <th class="px-2 py-2 text-left">BUn</th>
                 <th class="px-2 py-2 text-left">MTyp</th>
                 <th class="px-2 py-2 text-left">SLoc</th>
                 <th class="px-2 py-2 text-left">Bin</th>
-                <th class="px-2 py-2 text-right">Stock</th>
+                <th class="px-2 py-2 text-right">Sum of Unrestricted</th>
                 <th class="px-2 py-2 text-right">Cantidad</th>
                 <th class="px-2 py-2 text-left">REMARK</th>
                 <th class="px-2 py-2 text-left">COMENTARIOS</th>
@@ -99,21 +93,24 @@
           </table>
         </div>
       </div>
+
       <div class="flex items-center justify-between">
-        <p class="text-xs text-slate-500">Si aparece <span class="font-semibold text-rose-600">SIN STOCK</span>, no se podrá despachar.</p>
+        <p class="text-xs text-slate-500">Tip: si una fila muestra <span class="font-semibold text-rose-600">SIN STOCK</span> no podrá despacharse.</p>
         <div class="flex gap-2">
           <button id="btnBorrar" class="px-4 py-2 rounded-lg border">Borrar filas</button>
-          <button id="btnDespachar" class="px-4 py-2 rounded-lg bg-emerald-600 text-white">DESPACHAR</button>
+          <button id="btnDespachar" class="px-4 py-2 rounded-lg bg-emerald-600 text-white">DESPACHAR MATERIAL</button>
         </div>
       </div>
     </section>
 
-    <!-- Vista de Descargas -->
+    <!-- DESCARGAS -->
     <section id="view-descargas" class="hidden">
       <div class="rounded-xl border bg-white overflow-hidden">
         <div class="flex items-center justify-between px-4 py-3 border-b bg-slate-50">
           <div class="font-semibold">DESPACHOS REALIZADOS</div>
-          <button id="btnLimpiarDescargas" class="px-3 py-1.5 rounded-lg border text-sm">Vaciar lista (local)</button>
+          <div class="flex items-center gap-2">
+            <button id="btnLimpiarDescargas" class="px-3 py-1.5 rounded-lg border text-sm">Vaciar lista (local)</button>
+          </div>
         </div>
         <div class="overflow-auto">
           <table class="min-w-full text-sm" id="tablaDescargas">
@@ -141,318 +138,329 @@
     </section>
   </div>
 
-  <!-- Notificación Toast -->
+  <!-- Toast -->
   <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 hidden">
     <div class="bg-emerald-600 text-white px-4 py-2 rounded-lg shadow-lg">Tu despacho ha sido completado</div>
   </div>
 
-  <!-- Lógica de la aplicación -->
+  <!-- Carga opcional de config.js (si existe) -->
+  <script>
+    window.__CONFIG__ = null;
+    (async () => {
+      try {
+        const mod = await import('./config.js');
+        window.__CONFIG__ = mod.default || null;
+      } catch(e) { /* sin config => sólo lectura remota y escritura local */ }
+    })();
+  </script>
+
+  <!-- App -->
   <script type="module">
     import STOCK_DATA from './stock-data.js';
 
-    // Función de inicialización para cargar configuración opcional y manejar modo compartido
-    async function init(){
-      // Carga opcional de config.js (puede no existir)
-      let CONFIG;
+    // ===== Estado de datos =====
+    let STOCK = STOCK_DATA || [];
+
+    // Descargas
+    const LS_DESC = 'descargas_v1';
+    let DESCARGAS_SHARED = []; // del repo (pull)
+    let DESCARGAS_LOCAL  = []; // del navegador
+    let DESCARGAS        = []; // MERGE usado para UI y disponibilidad
+
+    // ===== Utilidades =====
+    const $ = (s,ctx=document)=>ctx.querySelector(s);
+    const $all=(s,ctx=document)=>Array.from(ctx.querySelectorAll(s));
+    const fmt = n => Number(n||0).toLocaleString('es-MX',{maximumFractionDigits:2});
+    const toNum = v => {
+      if(v==null) return 0;
+      if(typeof v==='number') return v;
+      let s=String(v).trim(); if(!s) return 0;
+      const hasC=s.includes(','), hasD=s.includes('.');
+      if(hasC&&hasD){ if(s.lastIndexOf('.')>s.lastIndexOf(',')) s=s.replace(/,/g,''); else s=s.replace(/\./g,'').replace(/,/g,'.'); }
+      else if(hasC){ s=s.replace(/,/g,'.'); }
+      s=s.replace(/[^0-9.-]/g,'');
+      const n=parseFloat(s); return isNaN(n)?0:n;
+    };
+
+    function toast(msg='Tu despacho ha sido completado'){
+      const t = $('#toast'); t.firstElementChild.textContent = msg;
+      t.classList.remove('hidden'); setTimeout(()=> t.classList.add('hidden'), 1800);
+    }
+
+    // ===== Descargas: carga/merge/pull/push =====
+    function loadLocalDescargas(){
+      try { DESCARGAS_LOCAL = JSON.parse(localStorage.getItem(LS_DESC) || '[]'); }
+      catch { DESCARGAS_LOCAL = []; }
+    }
+    function saveLocalDescargas(arr){
+      localStorage.setItem(LS_DESC, JSON.stringify(arr||[]));
+      DESCARGAS_LOCAL = arr || [];
+    }
+    function recomputeDescargasBase(){
+      DESCARGAS = (DESCARGAS_SHARED||[]).concat(DESCARGAS_LOCAL||[]);
+    }
+
+    async function pullDescargas(){
       try{
-        CONFIG = (await import('./config.js')).default;
-      }catch(e){ CONFIG = null; }
-
-      const GH = CONFIG && CONFIG.github ? CONFIG.github : null;
-      // Forzamos modo compartido siempre: se leerá descargas.json del repositorio si GH existe
-      const SHARED_MODE = true;
-      const CAN_PUSH    = GH && GH.token && GH.token.length>0;
-
-      // Estado de la aplicación
-      let STOCK = STOCK_DATA || [];
-      let DESCARGAS = [];
-      let filasDespacho = [];
-
-      // Utilidades numéricas
-      const fmt = n => Number(n||0).toLocaleString('es-MX', {maximumFractionDigits:2});
-      const toNum = v => {
-        if(v==null || v==='') return 0;
-        const n = parseFloat(String(v).replace(/,/g,'.').replace(/[^0-9.-]/g,''));
-        return isNaN(n)?0:n;
-      };
-
-      // Obtiene URL RAW para descargas.json
-      const rawUrl = path => {
-        if(!GH) return '';
-        return `https://raw.githubusercontent.com/${GH.owner}/${GH.repo}/${GH.branch||'main'}/${path}`;
-      };
-
-      // Lee descargas compartidas desde GitHub (si GH existe)
-      async function pullDescargas(){
-        if(!GH){ DESCARGAS = JSON.parse(localStorage.getItem('descargas_v1')||'[]'); return; }
-        try{
-          const res = await fetch(rawUrl('descargas.json') + `?t=${Date.now()}`, {cache:'no-store'});
-          if(res.ok){ const json = await res.json(); if(Array.isArray(json)) DESCARGAS = json; }
-        }catch(e){ console.warn('Error al leer descargas.json', e); }
-      }
-
-      // Guarda descargas en GitHub (si existe token) o localStorage
-      async function pushDescargas(){
-        if(GH && CAN_PUSH){
-          // GitHub Contents API
-          const path = 'descargas.json';
-          // Obtener SHA actual
-          let sha;
-          try{
-            const metaRes = await fetch(`https://api.github.com/repos/${GH.owner}/${GH.repo}/contents/${path}?ref=${GH.branch||'main'}`, {
-              headers: { 'Accept':'application/vnd.github+json', 'Authorization': `Bearer ${GH.token}` }
-            });
-            if(metaRes.ok){ const meta = await metaRes.json(); sha = meta.sha; }
-          }catch(e){ console.warn('meta error', e); }
-          const content = btoa(unescape(encodeURIComponent(JSON.stringify(DESCARGAS, null, 2))));
-          const body = {
-            message: `chore(descargas): update ${new Date().toISOString()}`,
-            content,
-            branch: GH.branch||'main',
-            sha
-          };
-          try{
-            const putRes = await fetch(`https://api.github.com/repos/${GH.owner}/${GH.repo}/contents/${path}`, {
-              method:'PUT',
-              headers: {
-                'Accept':'application/vnd.github+json',
-                'Authorization': `Bearer ${GH.token}`,
-                'Content-Type':'application/json'
-              },
-              body: JSON.stringify(body)
-            });
-            if(!putRes.ok) console.warn('Error guardando en GitHub', await putRes.text());
-          }catch(e){ console.warn('push error', e); }
-        } else {
-          // Fallback local
-          localStorage.setItem('descargas_v1', JSON.stringify(DESCARGAS));
+        const GH = window.__CONFIG__?.github;
+        if(GH){
+          const raw = `https://raw.githubusercontent.com/${GH.owner}/${GH.repo}/${GH.branch||'main'}/descargas.json?t=${Date.now()}`;
+          const res = await fetch(raw, {cache:'no-store'});
+          DESCARGAS_SHARED = res.ok ? await res.json() : [];
+        }else{
+          DESCARGAS_SHARED = [];
         }
-      }
+      }catch{ DESCARGAS_SHARED = []; }
+      loadLocalDescargas();
+      recomputeDescargasBase();
+    }
 
-      // Busca stock por número de parte (agrupando por BIN)
-      function stockPorNP(np){
-        const rows = (STOCK||[]).filter(x => String(x.Material||'').toUpperCase() === String(np||'').toUpperCase());
-        const map = new Map();
-        for(const r of rows){
-          const key = r.Bin;
-          if(!map.has(key)) map.set(key, { ...r, Unrestricted: toNum(r.Unrestricted) });
-          else map.get(key).Unrestricted += toNum(r.Unrestricted);
-        }
-        return Array.from(map.values());
-      }
+    async function pushDescargasTry(){
+      const GH = window.__CONFIG__?.github;
+      if(!GH?.token) return false;
+      try{
+        // SHA actual
+        const metaRes = await fetch(`https://api.github.com/repos/${GH.owner}/${GH.repo}/contents/descargas.json?ref=${GH.branch||'main'}`, {
+          headers:{ 'Accept':'application/vnd.github+json','Authorization':`Bearer ${GH.token}` }
+        });
+        const meta = metaRes.ok ? await metaRes.json() : null;
+        const sha = meta?.sha;
 
-      // Renderiza la tabla de despacho
-      function renderDespacho(){
-        const tb = document.getElementById('bodyDespacho');
-        tb.innerHTML = '';
-        for(const f of filasDespacho){
-          const danger = (f.alerta==='SIN STOCK') || (f.qty>0 && f.qty>f.disponible);
-          const alerta = danger ? 'SIN STOCK' : '';
-          tb.insertAdjacentHTML('beforeend', `
-            <tr class="border-b ${danger ? 'bg-rose-50' : ''} hover:bg-sky-50 transition-colors">
-              <td class="px-2 py-1 text-rose-600 font-semibold">${alerta}</td>
-              <td class="px-2 py-1">${f.batch||''}</td>
-              <td class="px-2 py-1">${f.material||''}</td>
-              <td class="px-2 py-1">${f.descripcion||''}</td>
-              <td class="px-2 py-1">${f.bun||''}</td>
-              <td class="px-2 py-1">${f.mtyp||''}</td>
-              <td class="px-2 py-1">${f.sloc||''}</td>
-              <td class="px-2 py-1">${f.bin||''}</td>
-              <td class="px-2 py-1 text-right">${fmt(f.stock)} <span class="text-xs text-slate-500">(disp: ${fmt(f.disponible)})</span></td>
-              <td class="px-2 py-1 text-right"><input type="number" min="0" step="1" value="${f.qty}" data-id="${f.id}" class="qty w-20 px-2 py-1 rounded-md border text-right" /></td>
-              <td class="px-2 py-1">${f.remark||''}</td>
-              <td class="px-2 py-1"><input data-id="${f.id}" class="coment w-40 px-2 py-1 rounded-md border" placeholder="Comentario" value="${f.comentario||''}" /></td>
-              <td class="px-2 py-1 text-center"><input type="checkbox" ${f.check? 'checked':''} data-id="${f.id}" class="chk w-5 h-5" ${danger? 'disabled':''} /></td>
-            </tr>
-          `);
-        }
-        // Eventos en inputs de la tabla
-        tb.querySelectorAll('.qty').forEach(inp => {
-          inp.addEventListener('input', e => {
-            const id = Number(e.target.dataset.id);
-            const row = filasDespacho.find(x => x.id === id);
-            row.qty = Math.floor(toNum(e.target.value));
-            renderDespacho();
-          });
-        });
-        tb.querySelectorAll('.coment').forEach(inp => {
-          inp.addEventListener('input', e => {
-            const id = Number(e.target.dataset.id);
-            const row = filasDespacho.find(x => x.id === id);
-            row.comentario = e.target.value;
-          });
-        });
-        tb.querySelectorAll('.chk').forEach(inp => {
-          inp.addEventListener('change', e => {
-            const id = Number(e.target.dataset.id);
-            const row = filasDespacho.find(x => x.id === id);
-            row.check = e.target.checked;
-          });
-        });
-      }
+        // Contenido = shared (pull) + local (actual)
+        const contentArr = (DESCARGAS_SHARED||[]).concat(DESCARGAS_LOCAL||[]);
+        const content = btoa(unescape(encodeURIComponent(JSON.stringify(contentArr, null, 2))));
 
-      // Renderiza la tabla de descargas realizadas
-      function renderDescargas(){
-        const tb = document.getElementById('bodyDescargas');
-        tb.innerHTML = '';
-        for(const r of DESCARGAS){
+        const body = { message:`chore(descargas): update ${new Date().toISOString()}`, content, branch: GH.branch||'main', sha };
+        const putRes = await fetch(`https://api.github.com/repos/${GH.owner}/${GH.repo}/contents/descargas.json`, {
+          method:'PUT',
+          headers:{ 'Accept':'application/vnd.github+json','Authorization':`Bearer ${GH.token}`, 'Content-Type':'application/json' },
+          body: JSON.stringify(body)
+        });
+        return putRes.ok;
+      }catch(e){ console.warn('push error', e); return false; }
+    }
+
+    // ===== Lógica de stock / búsqueda =====
+    function sumDespachado(material, sloc, batch){
+      return (DESCARGAS||[])
+        .filter(x => x.material===material && x.sloc===sloc && x.batch===batch)
+        .reduce((s,x)=> s + Number(x.cantidad||0), 0);
+    }
+
+    function stockPorNP(np){
+      const rows = (STOCK||[]).filter(x => String(x.Material||'').toUpperCase() === String(np||'').toUpperCase());
+      const map = new Map();
+      for(const r of rows){
+        const key = r.Bin + '|' + r.SLoc + '|' + r.Batch;
+        if(!map.has(key)) map.set(key, {...r});
+        else map.get(key).Unrestricted = toNum(map.get(key).Unrestricted) + toNum(r.Unrestricted);
+      }
+      return Array.from(map.values());
+    }
+
+    // ===== Render de despacho =====
+    let filasDespacho = [];
+
+    function buscar(){
+      const np = $('#np').value.trim();
+      const items = stockPorNP(np);
+      filasDespacho = items.map((r, idx)=>{
+        const ya = sumDespachado(r.Material, r.SLoc, r.Batch);
+        const disponible = toNum(r.Unrestricted) - ya;
+        return {
+          id: idx+1,
+          alerta: disponible<=0 ? 'SIN STOCK' : '',
+          batch: r.Batch,
+          material: r.Material,
+          descripcion: r['Material Description'] ?? r.MaterialDescription ?? '',
+          bun: r.BUn,
+          mtyp: r.MTyp,
+          sloc: r.SLoc,
+          bin: r.Bin,
+          stock: toNum(r.Unrestricted),
+          disponible,
+          qty: 0,
+          remark: '',
+          comentario: '',
+          check: false,
+          costo: toNum(r.COSTO||0)
+        };
+      });
+      renderDespacho();
+    }
+
+    function renderDespacho(){
+      const tb = $('#bodyDespacho'); tb.innerHTML='';
+      for(const f of filasDespacho){
+        const danger = f.alerta==='SIN STOCK' || (f.qty>0 && f.qty>f.disponible);
+        const alerta = danger ? 'SIN STOCK' : '';
         tb.insertAdjacentHTML('beforeend', `
-            <tr class="border-b hover:bg-sky-50 transition-colors">
-              <td class="px-2 py-1">${r.matricula||''}</td>
-              <td class="px-2 py-1">${r.cliente||''}</td>
-              <td class="px-2 py-1">${r.np||''}</td>
-              <td class="px-2 py-1">${r.descripcion||''}</td>
-              <td class="px-2 py-1">${r.wo||''}</td>
-              <td class="px-2 py-1 text-right">${fmt(r.cantidad||0)}</td>
-              <td class="px-2 py-1">${r.um||''}</td>
-              <td class="px-2 py-1">${r.sloc||''}</td>
-              <td class="px-2 py-1">${r.batch||''}</td>
-              <td class="px-2 py-1">${r.neTecnico||''}</td>
-              <td class="px-2 py-1">${r.usuarioAlmacen||''}</td>
-              <td class="px-2 py-1">${r.fecha||''}</td>
-              <td class="px-2 py-1">${r.comentario||''}</td>
-            </tr>
-          `);
-        }
+          <tr class="border-b ${danger? 'bg-rose-50':''} hover:bg-sky-50 transition-colors">
+            <td class="px-2 py-1 text-rose-600 font-semibold">${alerta}</td>
+            <td class="px-2 py-1">${f.batch||''}</td>
+            <td class="px-2 py-1">${f.material}</td>
+            <td class="px-2 py-1">${f.descripcion||''}</td>
+            <td class="px-2 py-1">${f.bun||''}</td>
+            <td class="px-2 py-1">${f.mtyp||''}</td>
+            <td class="px-2 py-1">${f.sloc||''}</td>
+            <td class="px-2 py-1">${f.bin||''}</td>
+            <td class="px-2 py-1 text-right">${fmt(f.stock)} <span class="text-xs text-slate-500">(disp: ${fmt(f.disponible)})</span></td>
+            <td class="px-2 py-1 text-right">
+              <input type="number" min="0" step="1" value="${f.qty}" data-id="${f.id}" class="qty w-28 px-2 py-1 rounded-md border text-right" />
+            </td>
+            <td class="px-2 py-1"></td>
+            <td class="px-2 py-1"><input data-id="${f.id}" class="coment w-56 px-2 py-1 rounded-md border" placeholder="Comentario" value="${f.comentario||''}"/></td>
+            <td class="px-2 py-1 text-center"><input type="checkbox" ${f.check? 'checked':''} data-id="${f.id}" class="chk w-5 h-5" ${danger? 'disabled':''} /></td>
+          </tr>
+        `);
       }
-
-      // Busca materiales y genera filas de despacho
-      function buscar(){
-        const np = document.getElementById('np').value.trim();
-        if(!np){ filasDespacho = []; document.getElementById('bodyDespacho').innerHTML=''; return; }
-        const items = stockPorNP(np);
-        filasDespacho = items.map((r, idx) => {
-          const ya = DESCARGAS.filter(x => x.material === r.Material && x.sloc === r.SLoc && x.batch === r.Batch)
-            .reduce((s, x) => s + toNum(x.cantidad||0), 0);
-          const disponible = toNum(r.Unrestricted) - ya;
-          // Etiqueta HMV de ejemplo; personalizar si se requiere
-          let remark = '';
-          return {
-            id: idx+1,
-            alerta: disponible <= 0 ? 'SIN STOCK' : '',
-            batch: r.Batch,
-            material: r.Material,
-            descripcion: r['Material Description'] || r.MaterialDescription || '',
-            bun: r.BUn,
-            mtyp: r.MTyp,
-            sloc: r.SLoc,
-            bin: r.Bin,
-            stock: toNum(r.Unrestricted),
-            disponible,
-            qty: 0,
-            remark,
-            comentario: '',
-            check: false,
-            costo: toNum(r.COSTO||0)
-          };
-        });
-        renderDespacho();
-      }
-
-      // Despacha los elementos seleccionados
-      async function despachar(){
-        const matricula      = document.getElementById('matricula').value.trim();
-        const cliente        = document.getElementById('cliente').value.trim();
-        const neTecnico      = document.getElementById('neTecnico').value.trim();
-        const usuarioAlmacen = document.getElementById('usuarioAlmacen').value.trim();
-        const wo             = document.getElementById('wo').value.trim();
-
-        let nuevos = [];
-        for(const f of filasDespacho){
-          const danger = (f.disponible <= 0) || (f.qty > 0 && f.qty > f.disponible);
-          if(!f.check || !f.qty || danger) continue;
-          nuevos.push({
-            matricula,
-            cliente,
-            np: f.material,
-            descripcion: f.descripcion,
-            wo,
-            cantidad: toNum(f.qty),
-            um: f.bun,
-            sloc: f.sloc,
-            batch: f.batch,
-            neTecnico,
-            usuarioAlmacen,
-            fecha: new Date().toISOString().replace('T',' ').slice(0,16),
-            comentario: f.comentario,
-            material: f.material
-          });
-        }
-        if(nuevos.length === 0) return;
-        // Actualiza la lista local y remota
-        DESCARGAS = DESCARGAS.concat(nuevos);
-        await pushDescargas();
-        // Limpiar filas y cabeceras
-        filasDespacho = filasDespacho.filter(f => !(f.check && f.qty));
-        renderDespacho();
-        // Reset campos de cabecera
-        document.getElementById('matricula').value = '';
-        document.getElementById('neTecnico').value = '';
-        document.getElementById('wo').value = '';
-        // Notificación
-        const toast = document.getElementById('toast');
-        toast.classList.remove('hidden');
-        setTimeout(() => toast.classList.add('hidden'), 2200);
-      }
-
-      // Borra las filas de despacho cargadas
-      function borrarFilas(){ filasDespacho = []; document.getElementById('np').value=''; renderDespacho(); }
-
-      // Limpia descargas localmente
-      function limpiarDescargas(){ if(confirm('¿Vaciar la lista local de descargas?')){ DESCARGAS = []; localStorage.removeItem('descargas_v1'); renderDescargas(); } }
-
-      // Manejo de pestañas
-      const views = {
-        despacho:  document.getElementById('view-despacho'),
-        descargas: document.getElementById('view-descargas')
-      };
-      document.querySelectorAll('#tabs .tab-btn').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          const tab = btn.dataset.tab;
-          // Estilo activo
-          document.querySelectorAll('#tabs .tab-btn').forEach(b => {
-            b.classList.remove('bg-sky-600','text-white');
-            b.classList.add('bg-white','text-slate-700','border');
-          });
-          btn.classList.add('bg-sky-600','text-white');
-          btn.classList.remove('bg-white','text-slate-700','border');
-          // Mostrar vista
-          Object.keys(views).forEach(k => views[k].classList.toggle('hidden', k !== tab));
-          if(tab === 'descargas'){
-            await pullDescargas();
-            renderDescargas();
-          }
+      // Listeners
+      const tbNode = $('#bodyDespacho');
+      $all('.qty', tbNode).forEach(inp=>{
+        inp.addEventListener('input', e=>{
+          const id = Number(e.target.dataset.id);
+          const row = filasDespacho.find(x=>x.id===id);
+          row.qty = Math.floor(toNum(e.target.value||0));
+          renderDespacho();
         });
       });
+      $all('.coment', tbNode).forEach(inp=>{
+        inp.addEventListener('input', e=>{
+          const id = Number(e.target.dataset.id);
+          const row = filasDespacho.find(x=>x.id===id);
+          row.comentario = e.target.value;
+        });
+      });
+      $all('.chk', tbNode).forEach(inp=>{
+        inp.addEventListener('change', e=>{
+          const id = Number(e.target.dataset.id);
+          const row = filasDespacho.find(x=>x.id===id);
+          row.check = e.target.checked;
+        });
+      });
+    }
 
-      // Listeners principales
-      document.getElementById('btnBuscar').addEventListener('click', buscar);
-      document.getElementById('np').addEventListener('keydown', e => { if(e.key==='Enter') buscar(); });
-      document.getElementById('btnDespachar').addEventListener('click', despachar);
-      document.getElementById('btnBorrar').addEventListener('click', borrarFilas);
-      document.getElementById('btnLimpiarDescargas').addEventListener('click', limpiarDescargas);
+    // ===== Despachar =====
+    async function despachar(){
+      const matricula      = $('#matricula').value.trim();
+      const neTecnico      = $('#neTecnico').value.trim();
+      const usuarioAlmacen = $('#usuarioAlmacen').value.trim();
+      const wo             = $('#wo').value.trim();
+      const cliente        = $('#cliente')?.value || '';
 
-      // Inicialización: cargar descargas y preparar listas
-      // Carga inicial de descargas y renderiza si corresponde
-      await pullDescargas();
-      // Si la vista de descargas está visible desde el inicio, mostrar la tabla
-      if(!document.getElementById('view-descargas').classList.contains('hidden')){
-        renderDescargas();
+      const out = [];
+      for(const f of filasDespacho){
+        const danger = (f.disponible<=0) || (f.qty>0 && f.qty>f.disponible);
+        if(!f.check || !f.qty || danger) continue;
+        out.push({
+          matricula, cliente,
+          np: f.material,
+          descripcion: f.descripcion,
+          wo,
+          cantidad: Math.floor(f.qty),
+          um: f.bun,
+          sloc: f.sloc,
+          batch: f.batch,
+          neTecnico,
+          usuarioAlmacen,
+          fecha: new Date().toISOString().replace('T',' ').slice(0,16),
+          comentario: f.comentario,
+          material: f.material
+        });
+      }
+      if(out.length===0) return;
+
+      // SIEMPRE: añadir local para efecto inmediato
+      loadLocalDescargas();
+      const mergedLocal = (DESCARGAS_LOCAL||[]).concat(out);
+      saveLocalDescargas(mergedLocal);
+      recomputeDescargasBase();
+
+      // Intentar push a repo (si hay token)
+      let pushedOK = await pushDescargasTry();
+      if(pushedOK){
+        await pullDescargas(); // para alinear base con remoto
       }
 
-      // --- Actualización automática ---
-      // Para que la lista de descargas se actualice sola en todos los equipos, se configura un
-      // intervalo que consulta periódicamente el archivo descargas.json del repositorio (o
-      // LocalStorage). Si la vista de descargas está visible, re-renderiza la tabla.
+      // Limpiar filas seleccionadas y refrescar UI
+      filasDespacho = filasDespacho.filter(f => !(f.check && f.qty));
+      renderDespacho();
+      if(!views.descargas.classList.contains('hidden')) renderDescargas();
+
+      toast(pushedOK ? 'Sincronizado en repositorio' : 'Despacho guardado (local)');
+    }
+
+    // ===== Descargas (render) =====
+    function renderDescargas(){
+      const tb = $('#bodyDescargas'); tb.innerHTML='';
+      for(const r of (DESCARGAS||[])){
+        tb.insertAdjacentHTML('beforeend', `
+          <tr class="border-b hover:bg-sky-50 transition-colors">
+            <td class="px-2 py-1">${r.matricula||''}</td>
+            <td class="px-2 py-1">${r.cliente||''}</td>
+            <td class="px-2 py-1">${r.np||''}</td>
+            <td class="px-2 py-1">${r.descripcion||''}</td>
+            <td class="px-2 py-1">${r.wo||''}</td>
+            <td class="px-2 py-1 text-right">${r.cantidad??0}</td>
+            <td class="px-2 py-1">${r.um||''}</td>
+            <td class="px-2 py-1">${r.sloc||''}</td>
+            <td class="px-2 py-1">${r.batch||''}</td>
+            <td class="px-2 py-1">${r.neTecnico||''}</td>
+            <td class="px-2 py-1">${r.usuarioAlmacen||''}</td>
+            <td class="px-2 py-1">${r.fecha||''}</td>
+            <td class="px-2 py-1">${r.comentario||''}</td>
+          </tr>
+        `);
+      }
+    }
+
+    // ===== Tabs =====
+    const views = { despacho:$('#view-despacho'), descargas:$('#view-descargas') };
+    $all('#tabs .tab-btn').forEach(btn=>{
+      btn.addEventListener('click', async ()=>{
+        const tab = btn.dataset.tab;
+        $all('#tabs .tab-btn').forEach(b=>{
+          b.classList.remove('bg-sky-600','text-white');
+          b.classList.add('bg-white','text-slate-700','border');
+        });
+        btn.classList.add('bg-sky-600','text-white');
+        btn.classList.remove('bg-white','text-slate-700','border');
+
+        Object.keys(views).forEach(k => views[k].classList.toggle('hidden', k!==tab));
+        if(tab==='descargas'){
+          await pullDescargas();
+          renderDescargas();
+        }
+      });
+    });
+
+    // ===== Eventos =====
+    $('#btnBuscar').addEventListener('click', buscar);
+    $('#np').addEventListener('keydown', e=>{ if(e.key==='Enter') buscar(); });
+    $('#btnDespachar').addEventListener('click', despachar);
+    $('#btnBorrar').addEventListener('click', ()=>{ filasDespacho=[]; $('#np').value=''; renderDespacho(); });
+    $('#btnLimpiarDescargas').addEventListener('click', ()=>{
+      if(confirm('¿Vaciar la lista local de descargas?')){
+        localStorage.removeItem(LS_DESC);
+        DESCARGAS_LOCAL = [];
+        recomputeDescargasBase();
+        renderDescargas();
+      }
+    });
+
+    // ===== Inicial =====
+    (async function init(){
+      await pullDescargas();
+      // Si entras directo a /#descargas podrías marcarla activa manualmente (opcional)
+      if(!views.descargas.classList.contains('hidden')) renderDescargas();
+
+      // Auto-actualización cada 2s: refresca descargas y también la disponibilidad si hay filas cargadas
       setInterval(async () => {
         await pullDescargas();
-        // Si actualmente se muestra la pestaña de descargas, refresca la tabla
-        const descTabHidden = document.getElementById('view-descargas').classList.contains('hidden');
-        if(!descTabHidden) renderDescargas();
-      }, 2000); // 2000 ms = 2 segundos (actualización casi instantánea)
-    }
-    // Ejecutar inicialización
-    init();
+        if(!views.descargas.classList.contains('hidden')) renderDescargas();
+        if(filasDespacho.length) buscar(); // recalcula disponibilidad del NP activo
+      }, 2000);
+    })();
   </script>
 </body>
 </html>
