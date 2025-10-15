@@ -12,6 +12,9 @@
     ::-webkit-scrollbar{height:8px;width:8px}
     ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:6px}
   </style>
+
+  <!-- Librería SheetJS para exportar descargas -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 </head>
 <body class="bg-slate-50 text-slate-900">
   <div class="max-w-[1200px] mx-auto p-4">
@@ -110,6 +113,7 @@
           <div class="font-semibold">DESPACHOS REALIZADOS</div>
           <div class="flex items-center gap-2">
             <button id="btnLimpiarDescargas" class="px-3 py-1.5 rounded-lg border text-sm">Vaciar lista (local)</button>
+            <button id="btnExportarDescargas" class="px-3 py-1.5 rounded-lg border text-sm">Exportar descargas</button>
           </div>
         </div>
         <div class="overflow-auto">
@@ -443,6 +447,34 @@
     // ===== Limpiar descargas locales =====
     function limpiarDescargas(){ if(confirm('¿Vaciar la lista local de descargas?')){ localStorage.removeItem(LS_DESC); DESCARGAS_LOCAL = []; recomputeDescargas(); renderDescargas(); } }
 
+    // ===== Exportar descargas a Excel =====
+    function exportarDescargas(){
+      // Prepara los datos: combina remoto y local para exportar siempre la lista completa
+      const rows = (DESCARGAS || []).map(r => ({
+        'MATRÍCULA': r.matricula || '',
+        'CLIENTE': r.cliente || '',
+        'NP': r.np || '',
+        'DESCRIPCIÓN': r.descripcion || '',
+        'W.O.': r.wo || '',
+        'CANTIDAD': r.cantidad ?? 0,
+        'UM': r.um || '',
+        'SLOC': r.sloc || '',
+        'BATCH': r.batch || '',
+        'N.E. TÉCNICO': r.neTecnico || '',
+        'USUARIO ALMACÉN': r.usuarioAlmacen || '',
+        'FECHA': r.fecha || '',
+        'COMENTARIO': r.comentario || ''
+      }));
+      // Crea la hoja y libro de trabajo
+      const ws = XLSX.utils.json_to_sheet(rows, {
+        header: ['MATRÍCULA','CLIENTE','NP','DESCRIPCIÓN','W.O.','CANTIDAD','UM','SLOC','BATCH','N.E. TÉCNICO','USUARIO ALMACÉN','FECHA','COMENTARIO']
+      });
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, 'DESPACHOS');
+      // Genera el archivo Excel para descargar
+      XLSX.writeFile(wb, 'descargas.xlsx');
+    }
+
     // ===== Manejo de pestañas =====
     const views = { despacho: document.getElementById('view-despacho'), descargas: document.getElementById('view-descargas') };
     document.querySelectorAll('#tabs .tab-btn').forEach(btn => {
@@ -468,6 +500,9 @@
     document.getElementById('btnDespachar').addEventListener('click', despachar);
     document.getElementById('btnBorrar').addEventListener('click', borrarFilas);
     document.getElementById('btnLimpiarDescargas').addEventListener('click', limpiarDescargas);
+
+    // Exportar descargas a Excel
+    document.getElementById('btnExportarDescargas').addEventListener('click', exportarDescargas);
 
     // ===== Inicialización =====
     (async function init(){
