@@ -1,5 +1,5 @@
 {
-  "name": "despacho-materiales",
+ "name": "despacho-materiales",
   "main": "src/worker.js",
   "compatibility_date": "2025-10-15",
   "assets": {
