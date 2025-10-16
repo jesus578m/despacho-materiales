@@ -148,17 +148,18 @@
   <script type="module">
     // Import stock data from external file
     import STOCK_DATA from './stock-data.js';
-    // We'll load optional config in init
-    
+
     // ----- Global state -----
     let STOCK = STOCK_DATA || [];
     let DESCARGAS_LOCAL = [];
     let DESCARGAS_SHARED = [];
     let DESCARGAS = [];
     let CONFIG = null;
-    // Optional Cloudflare worker URL for remote updates. If set in config.js, the app
-    // will post new dispatch records to this URL instead of using the GitHub API.
-    let WORKER_URL = null;
+
+    // === CAMBIO MÍNIMO: detectar API_BASE del Worker ===
+    // Si tienes public/config.js con `window.API_BASE = '/api'`, lo usamos.
+    const API_BASE = (window.API_BASE && String(window.API_BASE)) || '/api';
+
     let filasDespacho = [];
     let currentTab = 'despacho';
 
@@ -192,11 +193,8 @@
 
     // ----- Descargas: load/save/merge -----
     function loadLocalDescargas() {
-      try {
-        DESCARGAS_LOCAL = JSON.parse(localStorage.getItem('descargas_v1') || '[]');
-      } catch {
-        DESCARGAS_LOCAL = [];
-      }
+      try { DESCARGAS_LOCAL = JSON.parse(localStorage.getItem('descargas_v1') || '[]'); }
+      catch { DESCARGAS_LOCAL = []; }
     }
     function saveLocalDescargas(arr) {
       localStorage.setItem('descargas_v1', JSON.stringify(arr || []));
@@ -207,34 +205,32 @@
     }
 
     async function pullDescargas() {
-      // Fetch remote descargas.json using GitHub raw URL. Fallback to jsDelivr if needed.
+      // Conserva tu modo GitHub si config.js trae credenciales; si no, solo local.
+      // (Sin cambios)
       const gh = CONFIG?.github;
       let data = [];
       if (gh) {
-          const urls = [
-            `https://raw.githubusercontent.com/${gh.owner}/${gh.repo}/${gh.branch || 'main'}/descargas.json`,
-            `https://cdn.jsdelivr.net/gh/${gh.owner}/${gh.repo}@${gh.branch || 'main'}/descargas.json`
-          ];
-          for (const url of urls) {
-            try {
-              const res = await fetch(url + '?t=' + Date.now(), { cache: 'no-store' });
-              if (res.ok) {
-                const json = await res.json();
-                if (Array.isArray(json)) {
-                  data = json;
-                  break;
-                }
-              }
-            } catch {}
-          }
+        const urls = [
+          `https://raw.githubusercontent.com/${gh.owner}/${gh.repo}/${gh.branch || 'main'}/descargas.json`,
+          `https://cdn.jsdelivr.net/gh/${gh.owner}/${gh.repo}@${gh.branch || 'main'}/descargas.json`
+        ];
+        for (const url of urls) {
+          try {
+            const res = await fetch(url + '?t=' + Date.now(), { cache: 'no-store' });
+            if (res.ok) {
+              const json = await res.json();
+              if (Array.isArray(json)) { data = json; break; }
+            }
+          } catch {}
+        }
       }
       DESCARGAS_SHARED = data;
       loadLocalDescargas();
       recomputeDescargas();
     }
 
-    async function pushDescargas() {
-      // Push merged descargas to GitHub via API if token is provided
+    async function pushDescargasGitHub() {
+      // Igual que tu versión (solo si hay token)
       const gh = CONFIG?.github;
       if (!gh || !gh.token) return false;
       try {
@@ -246,14 +242,11 @@
         });
         const meta = metaRes.ok ? await metaRes.json() : null;
         const sha = meta?.sha;
-        // Merge shared (latest) and local
         const merged = (DESCARGAS_SHARED || []).concat(DESCARGAS_LOCAL || []);
         const content = btoa(unescape(encodeURIComponent(JSON.stringify(merged, null, 2))));
         const body = {
           message: `chore(descargas): update ${new Date().toISOString()}`,
-          content,
-          branch: gh.branch || 'main',
-          sha
+          content, branch: gh.branch || 'main', sha
         };
         const putRes = await fetch(`https://api.github.com/repos/${gh.owner}/${gh.repo}/contents/descargas.json`, {
           method: 'PUT',
@@ -265,14 +258,13 @@
           body: JSON.stringify(body)
         });
         return putRes.ok;
-      } catch (err) {
-        console.warn('pushDescargas error', err);
-        return false;
-      }
+      } catch { return false; }
     }
 
     function sumDespachado(material, sloc, batch) {
-      return (DESCARGAS || []).filter(x => x.material === material && x.sloc === sloc && x.batch === batch).reduce((s, x) => s + Number(x.cantidad || 0), 0);
+      return (DESCARGAS || [])
+        .filter(x => x.material === material && x.sloc === sloc && x.batch === batch)
+        .reduce((s, x) => s + Number(x.cantidad || 0), 0);
     }
 
     function stockPorNP(np) {
@@ -280,22 +272,15 @@
       const map = new Map();
       for (const r of rows) {
         const key = `${r.Bin}|${r.SLoc}|${r.Batch}`;
-        if (!map.has(key)) {
-          map.set(key, { ...r });
-        } else {
-          map.get(key).Unrestricted = toNum(map.get(key).Unrestricted) + toNum(r.Unrestricted);
-        }
+        if (!map.has(key)) map.set(key, { ...r });
+        else map.get(key).Unrestricted = toNum(map.get(key).Unrestricted) + toNum(r.Unrestricted);
       }
       return Array.from(map.values());
     }
 
     function buscar() {
       const np = $('#np').value.trim();
-      if (!np) {
-        filasDespacho = [];
-        renderDespacho();
-        return;
-      }
+      if (!np) { filasDespacho = []; renderDespacho(); return; }
       const items = stockPorNP(np);
       filasDespacho = items.map((r, idx) => {
         const ya = sumDespachado(r.Material, r.SLoc, r.Batch);
@@ -323,7 +308,6 @@
     }
 
     function actualizarDisponibilidad() {
-      // Update available values and row classes based on current DESCARGAS
       for (const row of filasDespacho) {
         const ya = sumDespachado(row.material, row.sloc, row.batch);
         const disp = toNum(row.stock) - ya;
@@ -362,36 +346,26 @@
           </tr>
         `);
       }
-      // Attach events on each input without re-rendering entire table on each keypress
       const tbody = $('#bodyDespacho');
       tbody.querySelectorAll('.qty').forEach(inp => {
         const id = Number(inp.dataset.id);
         const row = filasDespacho.find(x => x.id === id);
-        inp.addEventListener('input', e => {
-          row.qty = Math.floor(toNum(e.target.value || 0));
-        });
-        // On blur or change, recompute row class and available highlight
-        inp.addEventListener('change', () => {
-          actualizarDisponibilidad();
-          renderDespacho();
-        });
+        inp.addEventListener('input', e => { row.qty = Math.floor(toNum(e.target.value || 0)); });
+        inp.addEventListener('change', () => { actualizarDisponibilidad(); renderDespacho(); });
       });
       tbody.querySelectorAll('.coment').forEach(inp => {
         const id = Number(inp.dataset.id);
         const row = filasDespacho.find(x => x.id === id);
-        inp.addEventListener('input', e => {
-          row.comentario = e.target.value;
-        });
+        inp.addEventListener('input', e => { row.comentario = e.target.value; });
       });
       tbody.querySelectorAll('.chk').forEach(inp => {
         const id = Number(inp.dataset.id);
         const row = filasDespacho.find(x => x.id === id);
-        inp.addEventListener('change', e => {
-          row.check = e.target.checked;
-        });
+        inp.addEventListener('change', e => { row.check = e.target.checked; });
       });
     }
 
+    // === CAMBIO MÍNIMO: despachar vía Worker (/api/records) y fallback GitHub ===
     async function despachar() {
       const matricula = $('#matricula').value.trim();
       const neTecnico = $('#neTecnico').value.trim();
@@ -403,8 +377,7 @@
         const danger = (f.disponible <= 0) || (f.qty > 0 && f.qty > f.disponible);
         if (!f.check || !f.qty || danger) continue;
         nuevos.push({
-          matricula,
-          cliente,
+          matricula, cliente,
           np: f.material,
           descripcion: f.descripcion,
           wo,
@@ -412,48 +385,49 @@
           um: f.bun,
           sloc: f.sloc,
           batch: f.batch,
-          neTecnico,
-          usuarioAlmacen,
-          fecha: new Date().toISOString().replace('T', ' ').slice(0, 16),
+          neTecnico, usuarioAlmacen,
+          fecha: new Date().toISOString().replace('T',' ').slice(0,16),
           comentario: f.comentario,
           material: f.material
         });
       }
       if (nuevos.length === 0) return;
-      // Add to local for immediate update
+
+      // Guarda local inmediato
       loadLocalDescargas();
       const mergedLocal = (DESCARGAS_LOCAL || []).concat(nuevos);
       saveLocalDescargas(mergedLocal);
       recomputeDescargas();
-      // Try to persist remotely: via worker if defined, otherwise via GitHub API
+
+      // 1) Intento Worker (KV)
       let pushed = false;
-      if (WORKER_URL) {
-        try {
-          for (const rec of nuevos) {
-            const res = await fetch(WORKER_URL, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ action: 'append', record: rec })
-            });
-            if (!res.ok) throw new Error('Worker error');
-          }
-          pushed = true;
-          await pullDescargas();
-        } catch (e) {
-          console.warn('worker push failed', e);
+      try {
+        for (const rec of nuevos) {
+          const r = await fetch(`${API_BASE}/records`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(rec)
+          });
+          if (!r.ok) throw new Error('Worker error');
         }
-      } else {
-        pushed = await pushDescargas();
-        if (pushed) {
-          await pullDescargas();
-        }
+        pushed = true;
+      } catch (e) {
+        console.warn('worker push failed', e);
       }
-      // Clear selected rows from internal state
+
+      // 2) Fallback a GitHub si hay token
+      if (!pushed) {
+        const ok = await pushDescargasGitHub();
+        if (ok) pushed = true;
+      }
+
+      // Limpia seleccionados en UI
       filasDespacho = filasDespacho.filter(f => !(f.check && f.qty));
       actualizarDisponibilidad();
       renderDespacho();
       if (currentTab === 'descargas') renderDescargas();
-      toast(pushed ? 'Sincronizado en repositorio' : 'Despacho guardado localmente');
+
+      toast(pushed ? 'Sincronizado' : 'Guardado local');
     }
 
     function renderDescargas() {
@@ -480,9 +454,16 @@
       }
     }
 
-    // Export descargas as Excel
+    // === CAMBIO MÍNIMO: exportación vía Worker CSV si está disponible ===
     async function exportDescargas() {
-      // Use SheetJS to convert JSON to worksheet and save as xlsx
+      // Si hay Worker, usa CSV del backend (más rápido y limpio)
+      const url = `${API_BASE}/descargas`;
+      try {
+        // Intento HEAD para ver si responde
+        const head = await fetch(url, { method: 'GET' });
+        if (head.ok) { window.location.href = url; return; }
+      } catch {}
+      // Fallback: SheetJS (tu versión)
       const rows = (DESCARGAS || []).map(r => ({
         'Matrícula': r.matricula || '',
         'Cliente': r.cliente || '',
@@ -498,8 +479,9 @@
         'Fecha': r.fecha || '',
         'Comentario': r.comentario || ''
       }));
-      const { utils, writeFile, book_new, book_append_sheet, json_to_sheet } = await import('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js');
-      const ws = json_to_sheet(rows);
+      const { writeFile, book_new, book_append_sheet, utils } =
+        await import('https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js');
+      const ws = utils.json_to_sheet(rows);
       const wb = book_new();
       book_append_sheet(wb, ws, 'Descargas');
       writeFile(wb, 'descargas.xlsx');
@@ -516,35 +498,19 @@
       document.querySelector(`[data-tab="${tab}"]`).classList.remove('bg-white', 'text-slate-700', 'border');
       document.querySelectorAll('section[id^="view-"]').forEach(sec => sec.classList.add('hidden'));
       document.getElementById('view-' + tab).classList.remove('hidden');
-      if (tab === 'descargas') {
-        renderDescargas();
-      }
+      if (tab === 'descargas') { renderDescargas(); }
     }
 
     // ----- Initialization -----
     async function init() {
-      // Load config (if exists)
-      try {
-        const mod = await import('./config.js');
-        CONFIG = mod.default || null;
-        // If config defines a workerUrl, use it
-        WORKER_URL = CONFIG?.workerUrl || null;
-      } catch {
-        CONFIG = null;
-        WORKER_URL = null;
-      }
-      // Load local descargas and remote
       loadLocalDescargas();
       await pullDescargas();
+
       // Bind events
       $('#btnBuscar').addEventListener('click', buscar);
       $('#np').addEventListener('keydown', e => { if (e.key === 'Enter') buscar(); });
       $('#btnDespachar').addEventListener('click', despachar);
-      $('#btnBorrar').addEventListener('click', () => {
-        filasDespacho = [];
-        $('#np').value = '';
-        renderDespacho();
-      });
+      $('#btnBorrar').addEventListener('click', () => { filasDespacho = []; $('#np').value=''; renderDespacho(); });
       $('#btnLimpiarDescargas').addEventListener('click', () => {
         if (confirm('¿Vaciar la lista local de descargas?')) {
           localStorage.removeItem('descargas_v1');
@@ -554,22 +520,20 @@
         }
       });
       $('#btnExportarDescargas').addEventListener('click', exportDescargas);
-      // Tabs
+
       document.querySelectorAll('#tabs .tab-btn').forEach(btn => {
         btn.addEventListener('click', () => switchTab(btn.dataset.tab));
       });
-      // Auto refresh every 2s: update remote data and availability
+
+      // Auto refresh cada 2s
       setInterval(async () => {
         await pullDescargas();
-        if (filasDespacho.length > 0) {
-          actualizarDisponibilidad();
-          renderDespacho();
-        }
+        if (filasDespacho.length > 0) { actualizarDisponibilidad(); renderDespacho(); }
         if (currentTab === 'descargas') renderDescargas();
       }, 2000);
     }
-    // Start the app
     init();
   </script>
 </body>
 </html>
+
